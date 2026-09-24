@@ -17,11 +17,19 @@
   var CONFIG = {
     TIMEZONE: 'America/Phoenix',
 
+    // The rotation runs only during office hours (Phoenix time). Outside them the
+    // screen shows a minimal full-screen clock.
+    ACTIVE_HOURS: { days: ['mon', 'tue', 'wed', 'thu', 'fri'], start: '08:00', end: '17:30' },
+    IDLE_DRIFT_MS: 60 * 1000,         // idle clock moves slightly every minute (limits burn-in)
+
     VIEW_ORDER: ['schedule', 'events', 'quote'],
     VIEW_DURATION_MS: { schedule: 20000, events: 15000, quote: 15000 },
     // If Schedule + Time Off don't fit at a readable size, the schedule slot is
     // split: day list first, then Time Off. This is the day list's share.
     SCHEDULE_SPLIT_RATIO: 0.6,
+    // If the events don't fit on one screen at a readable size they are split
+    // into pages; each page stays up this long (the Events slot grows to match).
+    EVENTS_PAGE_MS: 10000,
     FADE_MS: 300,
 
     REFRESH_MS: 5 * 60 * 1000,        // re-fetch every data file
@@ -36,7 +44,7 @@
       quote: 'data/quote.json'
     },
 
-    EVENTS_MAX: 4,
+    EVENTS_MAX: 8,                    // upcoming events shown (cards shrink, then page)
     TIMEOFF_MAX: 8,
     QUOTE_MAX_AGE_DAYS: 2,            // older quote.json -> use the fallback list
 
@@ -66,16 +74,16 @@
     BURN_IN_SHIFT_MS: 10 * 60 * 1000
   };
 
-  // Shown when data/quote.json is missing, malformed, or stale. Rotates daily.
+  // Funny fallbacks, shown when data/quote.json is missing, malformed, or stale. Rotates daily.
   var FALLBACK_QUOTES = [
-    { text: 'Well done is better than well said.', author: 'Benjamin Franklin' },
-    { text: 'If I have seen further, it is by standing on the shoulders of giants.', author: 'Isaac Newton' },
-    { text: 'Knowing is not enough; we must apply. Willing is not enough; we must do.', author: 'Johann Wolfgang von Goethe' },
-    { text: 'Do what you can, with what you have, where you are.', author: 'Theodore Roosevelt' },
-    { text: 'The best way out is always through.', author: 'Robert Frost' },
-    { text: 'The only way to do great work is to love what you do.', author: 'Steve Jobs' },
-    { text: 'Genius is one percent inspiration and ninety-nine percent perspiration.', author: 'Thomas Edison' },
-    { text: 'Try to be a rainbow in someone’s cloud.', author: 'Maya Angelou' }
+    { text: 'I love deadlines. I love the whooshing noise they make as they go by.', author: 'Douglas Adams' },
+    { text: 'Time is an illusion. Lunchtime doubly so.', author: 'Douglas Adams' },
+    { text: 'I can resist everything except temptation.', author: 'Oscar Wilde' },
+    { text: 'I am so clever that sometimes I don’t understand a single word of what I am saying.', author: 'Oscar Wilde' },
+    { text: 'Never put off till tomorrow what may be done day after tomorrow just as well.', author: 'Mark Twain' },
+    { text: 'Knowledge is knowing a tomato is a fruit; wisdom is not putting it in a fruit salad.', author: 'Miles Kington' },
+    { text: 'My fake plants died because I did not pretend to water them.', author: 'Mitch Hedberg' },
+    { text: 'The trouble with having an open mind, of course, is that people will insist on coming along and trying to put things in it.', author: 'Terry Pratchett' }
   ];
 
   /* ================================================================== *
@@ -114,6 +122,20 @@
     if (dow === 6) return todayN + 2;
     if (dow === 0) return todayN + 1;
     return todayN - (dow - 1);
+  }
+
+  function hhmmToMinutes(s) {
+    var p = String(s).split(':');
+    return (+p[0]) * 60 + (+p[1] || 0);
+  }
+
+  // parts = {y, m0, d, h, mi} in Phoenix time -> is the office open (rotation on)?
+  function officeOpen(parts) {
+    var H = CONFIG.ACTIVE_HOURS;
+    var key = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][weekdayOf(dayNum(parts.y, parts.m0, parts.d))];
+    if (H.days.indexOf(key) < 0) return false;
+    var m = parts.h * 60 + parts.mi;
+    return m >= hhmmToMinutes(H.start) && m < hhmmToMinutes(H.end);
   }
 
   var partsFmt = null;
@@ -503,7 +525,7 @@
   };
   var PARSE = { schedule: parseSchedule, timeoff: parseTimeOff, events: parseEvents, quote: parseQuote };
 
-  var rot = { order: CONFIG.VIEW_ORDER.slice(), idx: 0, timer: null, subTimer: null, speed: 1, frame: 0 };
+  var rot = { order: CONFIG.VIEW_ORDER.slice(), idx: 0, timer: null, subTimers: [], speed: 1, frame: 0 };
   var dom = {};
 
   function el(tag, cls, text) {
@@ -528,13 +550,24 @@
     return { el: f, fit: fit };
   }
 
+  // Does the frame's content fit at text scale f?
+  function fitsAt(fr, f) {
+    var c = fr.fit;
+    c.style.setProperty('--fit', f.toFixed(3));
+    if (c.offsetHeight > fr.el.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return false;
+    // Dates/times that must stay on one line also have to stay inside their card's padding.
+    var spans = c.querySelectorAll('.event .nowrap');
+    for (var i = 0; i < spans.length; i++) {
+      var card = spans[i].closest('.event');
+      var limit = card.getBoundingClientRect().right - parseFloat(getComputedStyle(card).paddingRight) + 1;
+      if (spans[i].getBoundingClientRect().right > limit) return false;
+    }
+    return true;
+  }
+
   // Largest --fit in [min, max] at which the content fits its frame (binary search).
   function fitFrame(fr, min, max) {
-    var box = fr.el, c = fr.fit;
-    function fits(f) {
-      c.style.setProperty('--fit', f.toFixed(3));
-      return c.offsetHeight <= box.clientHeight + 1 && c.scrollWidth <= c.clientWidth + 1;
-    }
+    function fits(f) { return fitsAt(fr, f); }
     if (fits(max)) return { fit: max, fits: true };
     if (!fits(min)) return { fit: min, fits: false };
     var lo = min, hi = max;
@@ -658,8 +691,9 @@
       setSubtitle(view, '');
       return renderPlaceholder(view, 'Events unavailable — retrying…');
     }
-    setSubtitle(view, items.length > 1 ? 'Next ' + items.length + ' events'
-      : items.length === 1 ? 'Next event' : 'Nothing on the calendar');
+    var label = items.length > 1 ? 'Next ' + items.length + ' events'
+      : items.length === 1 ? 'Next event' : 'Nothing on the calendar';
+    setSubtitle(view, label);
 
     var body = view.querySelector('.view-body');
     body.textContent = '';
@@ -673,23 +707,112 @@
       return 1;
     }
 
-    var fr = newFrame(body, false);
-    items.forEach(function (x) {
-      var card = el('article', 'event');
-      var title = el('h2', 'event-title', x.ev.title);
-      var chip = relativeChip(x.start, x.end, today, 'Happening now');
-      if (chip) title.appendChild(el('span', 'chip', chip));
-      card.appendChild(title);
+    var pages = layoutEvents(body, items, today);
+    if (pages.length > 1) {
+      view._subtitles = pages.map(function (_, i) { return label + ' · ' + (i + 1) + '/' + pages.length; });
+      setSubtitle(view, view._subtitles[0]);
+    }
+    return pages.length;
+  }
+
+  // One event card, in one of three layouts:
+  //   'stacked' - label above each value (roomy; best for 1-2 events)
+  //   'grid'    - label and value side by side
+  //   'compact' - dates and time on one line (best when many events share the screen)
+  function eventCard(x, today, layout) {
+    var card = el('article', 'event ' + layout);
+    var title = el('h2', 'event-title', x.ev.title);
+    var chip = relativeChip(x.start, x.end, today, 'Happening now');
+    if (chip) title.appendChild(el('span', 'chip', chip));
+    card.appendChild(title);
+    var WHEN_KEY = /^(dates?|timings?|times?)$/i;   // these never break mid-value
+    if (layout !== 'compact') {
       x.ev.fields.forEach(function (f) {
         var row = el('div', 'field');
         row.appendChild(el('span', 'field-key', /^timings?$/i.test(f.key) ? 'Time' : f.key));
-        row.appendChild(el('span', 'field-val', tidy(f.value)));
+        row.appendChild(el('span', 'field-val' + (WHEN_KEY.test(f.key) ? ' nowrap' : ''), tidy(f.value)));
         card.appendChild(row);
       });
-      fr.fit.appendChild(card);
+      return card;
+    }
+    var when = [];
+    var rest = [];
+    x.ev.fields.forEach(function (f) {
+      if (WHEN_KEY.test(f.key)) when.push(tidy(f.value)); else rest.push(f);
     });
-    fitFrame(fr, CONFIG.FIT.FLOOR, CONFIG.FIT.MAX);
-    return 1;
+    if (when.length) {
+      var line = el('div', 'event-when');
+      when.forEach(function (w, i) {
+        if (i) line.appendChild(el('span', 'sep', ' · '));
+        line.appendChild(el('span', 'nowrap', w));
+      });
+      card.appendChild(line);
+    }
+    rest.forEach(function (f) {
+      var meta = el('div', 'event-meta');
+      meta.appendChild(el('span', 'field-key', f.key));
+      meta.appendChild(el('span', 'field-val', tidy(f.value)));
+      card.appendChild(meta);
+    });
+    return card;
+  }
+
+  // Cards resize to the space available. All events on one screen in whichever
+  // layout gives the largest text; if even the best is below READABLE_MIN, compact
+  // cards are spread evenly over pages that each fit at a readable size.
+  function layoutEvents(body, items, today) {
+    var R = CONFIG.FIT.READABLE_MIN, F = CONFIG.FIT.FLOOR, M = CONFIG.FIT.MAX;
+
+    function onePage(list, layout) {
+      var fr = newFrame(body, true);
+      list.forEach(function (x) { fr.fit.appendChild(eventCard(x, today, layout)); });
+      return fr;
+    }
+
+    var layouts = ['stacked', 'grid', 'compact'];
+    var best = null;
+    layouts.forEach(function (layout) {
+      body.textContent = '';
+      var r = fitFrame(onePage(items, layout), F, M);
+      // Prefer the roomier layout unless another one gives clearly bigger text.
+      if (r.fits && (!best || r.fit > best.fit * 1.04)) best = { layout: layout, fit: r.fit };
+    });
+    if (best && best.fit >= R) {
+      body.textContent = '';
+      var single = onePage(items, best.layout);
+      fitFrame(single, F, M);
+      return [single];
+    }
+
+    // How many pages does a greedy fill need?
+    body.textContent = '';
+    var count = 1;
+    var probe = newFrame(body, true);
+    items.forEach(function (x) {
+      var card = eventCard(x, today, 'compact');
+      probe.fit.appendChild(card);
+      if (probe.fit.children.length > 1 && !fitsAt(probe, R)) {
+        count++;
+        probe.fit.textContent = '';
+        probe.fit.appendChild(card);
+      }
+    });
+
+    // Spread the events evenly over that many pages (add a page if a chunk is too tall).
+    var pages;
+    for (var n = count; n <= items.length; n++) {
+      body.textContent = '';
+      pages = [];
+      var per = Math.ceil(items.length / n);
+      for (var i = 0; i < items.length; i += per) pages.push(onePage(items.slice(i, i + per), 'compact'));
+      if (pages.every(function (p) { return fitsAt(p, R) || p.fit.children.length === 1; })) break;
+    }
+
+    // Same text size on every page: the largest size all of them can take.
+    var size = M;
+    pages.forEach(function (p) { size = Math.min(size, fitFrame(p, F, M).fit); });
+    pages.forEach(function (p) { p.fit.style.setProperty('--fit', size.toFixed(3)); });
+    return pages;
   }
 
   /* ---------- View 3: Quote of the Day ---------- */
@@ -720,6 +843,7 @@
 
   // A view that throws never stops the rotation: it shows its placeholder instead.
   function safeRender(name, view) {
+    view._subtitles = null;
     try { return RENDER[name](view); } catch (e) {
       console.error('[signage] render ' + name + ' failed:', e);
       try { return renderPlaceholder(view, FAIL_MSG[name]); } catch (e2) { return 1; }
@@ -730,7 +854,26 @@
   function setFrame(view, idx) {
     var frames = view.querySelectorAll('.frame');
     for (var i = 0; i < frames.length; i++) frames[i].classList.toggle('active', i === idx);
+    if (view._subtitles && view._subtitles[idx]) setSubtitle(view, view._subtitles[idx]);
     rot.frame = idx;
+  }
+
+  // How long each frame of a view stays up.
+  function frameDurations(name, frames) {
+    var base = CONFIG.VIEW_DURATION_MS[name];
+    if (frames <= 1) return [base];
+    if (name === 'schedule') {
+      return [base * CONFIG.SCHEDULE_SPLIT_RATIO, base * (1 - CONFIG.SCHEDULE_SPLIT_RATIO)];
+    }
+    var out = [];
+    for (var i = 0; i < frames; i++) out.push(Math.max(CONFIG.EVENTS_PAGE_MS, base / frames));
+    return out;
+  }
+
+  function clearRotationTimers() {
+    clearTimeout(rot.timer);
+    rot.subTimers.forEach(clearTimeout);
+    rot.subTimers = [];
   }
 
   function updateDots(name) {
@@ -739,8 +882,7 @@
   }
 
   function show(idx) {
-    clearTimeout(rot.timer);
-    clearTimeout(rot.subTimer);
+    clearRotationTimers();
     rot.idx = idx;
     var name = rot.order[idx];
     var view = viewEl(name);
@@ -750,11 +892,41 @@
     for (var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === view);
     updateDots(name);
 
-    var dur = CONFIG.VIEW_DURATION_MS[name] / rot.speed;
-    if (frames > 1) {
-      rot.subTimer = setTimeout(function () { setFrame(view, 1); }, dur * CONFIG.SCHEDULE_SPLIT_RATIO);
-    }
-    rot.timer = setTimeout(function () { show((idx + 1) % rot.order.length); }, dur);
+    var durs = frameDurations(name, frames).map(function (d) { return d / rot.speed; });
+    var t = 0;
+    durs.forEach(function (d, k) {
+      if (k > 0) rot.subTimers.push(setTimeout(function () { setFrame(view, k); }, t));
+      t += d;
+    });
+    rot.timer = setTimeout(function () { show((idx + 1) % rot.order.length); }, t);
+  }
+
+  function stopRotation() {
+    clearRotationTimers();
+    var all = document.querySelectorAll('.view');
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+  }
+
+  /* ---------- Office hours: rotation vs. idle clock ---------- */
+  var mode = { current: null, forced: null, ready: false };
+
+  function wantedMode() {
+    return mode.forced || (officeOpen(phoenixParts()) ? 'active' : 'idle');
+  }
+
+  function applyMode() {
+    var want = wantedMode();
+    document.body.classList.toggle('is-idle', want === 'idle');
+    if (!mode.ready || want === mode.current) return;
+    mode.current = want;
+    if (want === 'active') show(0); else stopRotation();
+  }
+
+  function driftIdleClock() {
+    if (!dom.idleInner) return;
+    var x = (Math.random() * 2 - 1) * 10;   // vw
+    var y = (Math.random() * 2 - 1) * 16;   // vh
+    dom.idleInner.style.transform = 'translate(' + x.toFixed(1) + 'vw,' + y.toFixed(1) + 'vh)';
   }
 
   function rerenderActive() {
@@ -817,7 +989,24 @@
         timeZone: CONFIG.TIMEZONE, hour: 'numeric', minute: '2-digit', hour12: true
       });
     }
-    dom.clock.textContent = clockFmt.format(new Date());
+    var now = new Date();
+    dom.clock.textContent = clockFmt.format(now);
+
+    // Idle clock: "4:07" + "PM", date underneath.
+    var hm = '', ap = '';
+    clockFmt.formatToParts(now).forEach(function (p) {
+      if (p.type === 'hour') hm = p.value + hm;
+      else if (p.type === 'minute') hm = hm + ':' + p.value;
+      else if (p.type === 'dayPeriod') ap = p.value;
+    });
+    if (dom.idleTime.textContent !== hm) dom.idleTime.textContent = hm;
+    if (dom.idleAmpm.textContent !== ap) dom.idleAmpm.textContent = ap;
+    var d = longDate(todayNum());
+    if (dom.idleDate.textContent !== d) dom.idleDate.textContent = d;
+
+    // Switch between rotation and idle clock when office hours start or end.
+    applyMode();
+
     setTimeout(tickClock, 1000 - (Date.now() % 1000) + 20);
   }
 
@@ -877,12 +1066,17 @@
       if (m) debugToday = dayNum(+m[1], +m[2] - 1, +m[3]);
     }
     if (q.speed && +q.speed > 0) rot.speed = +q.speed;
+    if (q.mode === 'active' || q.mode === 'idle') mode.forced = q.mode;
   }
 
   function boot() {
     dom.stage = document.getElementById('stage');
     dom.clock = document.getElementById('clock');
     dom.dots = document.getElementById('dots');
+    dom.idleInner = document.getElementById('idle-inner');
+    dom.idleTime = document.getElementById('idle-time');
+    dom.idleAmpm = document.getElementById('idle-ampm');
+    dom.idleDate = document.getElementById('idle-date');
     document.documentElement.style.setProperty('--fade', CONFIG.FADE_MS + 'ms');
     readDebugParams();
 
@@ -892,13 +1086,17 @@
       dom.dots.appendChild(d);
     });
 
-    tickClock();
+    tickClock();          // also shows the idle clock right away outside office hours
     keepAwake();
     burnInShift();
     scheduleDailyReload();
+    if (CONFIG.IDLE_DRIFT_MS) setInterval(driftIdleClock, CONFIG.IDLE_DRIFT_MS);
 
-    var started = false;
-    function start() { if (!started) { started = true; show(0); } }
+    function start() {
+      if (mode.ready) return;
+      mode.ready = true;
+      applyMode();
+    }
     refreshAll().then(start, start);
     setTimeout(start, CONFIG.FETCH_TIMEOUT_MS + 2000); // never wait forever for the first load
     setInterval(refreshAll, CONFIG.REFRESH_MS);
@@ -906,7 +1104,7 @@
     var resizeTimer;
     root.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (started) rerenderActive(); }, 300);
+      resizeTimer = setTimeout(function () { if (mode.current === 'active') rerenderActive(); }, 300);
     });
   }
 
@@ -918,6 +1116,7 @@
     parseSchedule: parseSchedule, parseTimeOff: parseTimeOff, parseEvents: parseEvents, parseQuote: parseQuote,
     classifyValue: classifyValue, buildWeek: buildWeek, resolveTimeOff: resolveTimeOff,
     resolveEvents: resolveEvents, pickQuote: pickQuote, formatDayRange: formatDayRange, weekLabel: weekLabel,
+    officeOpen: officeOpen,
     refreshNow: refreshAll   // e.g. Signage.refreshNow() from the browser console
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

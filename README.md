@@ -2,7 +2,8 @@
 
 Static digital signage for a portrait (phone-shaped) screen. Plain HTML/CSS/JS, no build step, hosted on GitHub Pages.
 Rotates **Schedule → Upcoming Events → Quote of the Day** (20 s / 15 s / 15 s, 300 ms crossfade), with a live
-Phoenix clock and a gold dot indicator. Schedule and time-off changes arrive from a weekly Google Form.
+Phoenix clock and a gold dot indicator, **Mon–Fri 8:00 AM–5:30 PM**. Outside those hours it shows a minimal
+full-screen clock. Schedule and time-off changes arrive from a weekly Google Form.
 
 ```
 index.html  style.css  app.js
@@ -41,11 +42,13 @@ To let others edit `data/` files in the GitHub web editor, add them under **Sett
 ## 2. Quote of the Day Action
 
 Runs daily at 12:23 AM and 6:23 AM Phoenix, or on demand from **Actions → Fetch quote of the day → Run workflow**.
-It reads BrainyQuote's official RSS feed (`https://www.brainyquote.com/link/quotebr.rss`, the feed behind
-`/feeds/todays_quote`), writes `data/quote.json`, commits only if the quote changed, and asks Pages to rebuild.
+It reads BrainyQuote's official **Funny Quote** RSS feed (`https://www.brainyquote.com/link/quotefu.rss`, the feed
+behind `/feeds/funny`), writes `data/quote.json`, commits only if the quote changed, and asks Pages to rebuild.
+The slide keeps its "Quote of the Day" title. For regular quotes instead, set `FEED_URL` in the workflow to
+`https://www.brainyquote.com/link/quotebr.rss`.
 
 - If the run fails with a permissions error: **Settings → Actions → General → Workflow permissions → Read and write**.
-- If BrainyQuote ever blocks the runner, the job goes red and the screen quietly uses the 8 fallback quotes in `app.js`
+- If BrainyQuote ever blocks the runner, the job goes red and the screen quietly uses the 8 funny fallback quotes in `app.js`
   (also used whenever `quote.json` is more than 2 days old).
 - GitHub pauses scheduled workflows in repos with no activity for 60 days; the Form's commits count as activity.
 
@@ -92,6 +95,8 @@ Anyone on time off that day shows "Time Off" in the schedule (`TIMEOFF_OVERRIDES
 
 **events.txt**: first line is the title (`Japanese Film Festival:`), then `Dates:`, `Timings:`, `Student Worker:`
 (any extra `Key: value` lines are shown too). Blank line between events. Events without a readable `Dates:` line are skipped.
+Up to 8 upcoming events are shown (`EVENTS_MAX` in `app.js`). Cards grow when there are few and shrink as you add more;
+if they'd drop below a readable size they switch to a compact layout, then split into pages (10 s each, "1/2" in the header).
 
 **quote.json**: `{ "date": "YYYY-MM-DD", "text": "...", "author": "..." }` (+ `link`, `source`, `fetchedAt`).
 
@@ -103,6 +108,8 @@ Any file can still be edited by hand in GitHub's web editor (pencil icon → edi
   the schedule slot splits: day list for 12 s, then Time Off for 8 s.
 - **Failures:** a file that 404s or can't be parsed shows a calm "… unavailable — retrying…" card for that view only,
   retried every 5 minutes. A brief network drop keeps the last good copy on screen instead.
+- **Office hours:** `ACTIVE_HOURS` in `app.js` (days, start, end). The switch happens within a second of the boundary;
+  the idle clock is true black and drifts slightly every minute so nothing burns in.
 - **Daily reload** at 2:00 AM Phoenix, only once the site answers, so an outage never leaves a browser error page.
 - Screen wake lock where supported, and a ~1 px shift every 10 minutes to limit OLED burn-in.
 
@@ -112,4 +119,4 @@ Any file can still be edited by hand in GitHub's web editor (pencil icon → edi
 python3 -m http.server 8000     # then open http://localhost:8000
 ```
 URL parameters: `?view=schedule|events|quote` (pin one view), `?date=2026-10-07` (pretend today is that date),
-`?speed=5` (rotate 5× faster).
+`?speed=5` (rotate 5× faster), `?mode=active|idle` (force the rotation or the idle clock regardless of the time).

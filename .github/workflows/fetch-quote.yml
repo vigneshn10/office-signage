@@ -1,7 +1,9 @@
 name: Fetch quote of the day
 
-# Pulls BrainyQuote's "Today's Quote" RSS feed (the official feed linked from
-# https://www.brainyquote.com/feeds/todays_quote) and commits data/quote.json.
+# Pulls BrainyQuote's "Funny Quote" RSS feed (the official feed linked from
+# https://www.brainyquote.com/feeds/funny) and commits data/quote.json.
+# To go back to the regular quote of the day, set FEED_URL to
+# https://www.brainyquote.com/link/quotebr.rss
 # The page renders its own card from that JSON; if this job fails, app.js
 # falls back to its built-in quote list, so the screen never breaks.
 
@@ -31,7 +33,7 @@ jobs:
 
       - name: Download and parse today's quote
         env:
-          FEED_URL: https://www.brainyquote.com/link/quotebr.rss
+          FEED_URL: https://www.brainyquote.com/link/quotefu.rss
         run: |
           python3 - <<'PY'
           import html, json, os, sys, time, urllib.request
