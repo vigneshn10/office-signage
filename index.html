@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#8C1D40">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="robots" content="noindex">
+  <title>Office Screen</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="stage" id="stage">
+
+    <section class="view" data-view="schedule" aria-label="Schedule">
+      <header class="view-header">
+        <h1 class="title">Schedule</h1>
+        <p class="subtitle" data-subtitle>&nbsp;</p>
+      </header>
+      <div class="view-body"></div>
+    </section>
+
+    <section class="view" data-view="events" aria-label="Upcoming events">
+      <header class="view-header">
+        <h1 class="title">Upcoming Events</h1>
+        <p class="subtitle" data-subtitle>&nbsp;</p>
+      </header>
+      <div class="view-body"></div>
+    </section>
+
+    <section class="view" data-view="quote" aria-label="Quote of the day">
+      <header class="view-header">
+        <h1 class="title">Quote of the Day</h1>
+        <p class="subtitle" data-subtitle>&nbsp;</p>
+      </header>
+      <div class="view-body"></div>
+    </section>
+
+    <div class="clock" id="clock" aria-hidden="true"></div>
+    <nav class="dots" id="dots" aria-hidden="true"></nav>
+  </main>
+
+  <noscript>
+    <p class="noscript">This screen needs JavaScript enabled.</p>
+  </noscript>
+
+  <script src="app.js"></script>
+</body>
+</html>

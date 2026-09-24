@@ -1,0 +1,8 @@
+# Upcoming events for the office screen. One block per event, blank line between events.
+# First line is the event name; "Dates:" is required (past events hide automatically).
+# The next 4 upcoming events are shown, soonest first. Lines starting with "# " are ignored.
+
+Japanese Film Festival:
+Dates: Oct 3 - Oct 5, 2026
+Timings: 5:00 PM - 8:00 PM
+Student Worker: Priya

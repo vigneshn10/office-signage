@@ -1,0 +1,6 @@
+# Time off for the office screen, one entry per line:
+#   Name: date            e.g.  Julia: Nov 3, 2026
+#   Name: start - end     e.g.  Vignesh: Oct 10 - Oct 12, 2026
+# Past entries hide automatically; upcoming ones are sorted soonest-first.
+# The Google Form appends new lines at the bottom. Lines starting with "# " are ignored.
+

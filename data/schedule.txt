@@ -1,0 +1,26 @@
+# Weekly schedule for the office screen. Dates are added automatically (this week's Mon-Fri).
+# Format: a "Day:" line, then "Name: value" lines, blank line between days.
+# Value = a time range (9:00 AM - 1:00 PM), "Not Scheduled", or any text (e.g. "Half day"), shown as typed.
+# No line for someone under a day = they aren't shown that day.
+# Julia's and Melissa's regular hours live in app.js; add a line for them only to override one day.
+# The Google Form edits this file automatically. Lines starting with "# " are ignored.
+
+Monday:
+Vignesh: 9:00 AM - 1:00 PM
+Balaji: 1:00 PM - 5:00 PM
+
+Tuesday:
+Vignesh: Not Scheduled
+Balaji: 9:00 AM - 5:00 PM
+
+Wednesday:
+Vignesh: 9:00 AM - 1:00 PM
+Balaji: 1:00 PM - 5:00 PM
+
+Thursday:
+Vignesh: Not Scheduled
+Balaji: 9:00 AM - 5:00 PM
+
+Friday:
+Vignesh: 9:00 AM - 1:00 PM
+Balaji: 1:00 PM - 5:00 PM
