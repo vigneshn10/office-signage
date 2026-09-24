@@ -24,6 +24,3 @@ Balaji: 1:00 PM - 5:30 PM
 Friday:
 Vignesh: Not Scheduled
 Balaji: 9:00 AM - 5:30 PM
-
-Julia: Tuesday - Friday; 7:30 AM - 5:30 PM
-Melissa: Monday - Friday; 8:00 AM - 5:00 PM
