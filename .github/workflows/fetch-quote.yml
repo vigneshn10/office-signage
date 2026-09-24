@@ -37,7 +37,7 @@ jobs:
 
       - name: Download and parse today's quote
         env:
-          FEED_URL: https://www.brainyquote.com/link/quotefu.rss
+          FEED_URL: https://www.brainyquote.com/link/quotebr.rss
         run: |
           python3 - <<'PY'
           import html, json, os, sys, time, urllib.request
