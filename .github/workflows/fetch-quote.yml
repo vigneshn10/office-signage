@@ -13,6 +13,10 @@ on:
     - cron: '23 7 * * *'
     # Second attempt at 6:23 AM Phoenix in case the first run failed or was skipped.
     - cron: '23 13 * * *'
+  # Also run right away whenever this file is changed (e.g. a new FEED_URL).
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fetch-quote.yml']
   workflow_dispatch:
 
 permissions:

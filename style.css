@@ -46,12 +46,18 @@ html, body {
   user-select: none;
 }
 
+/* Revealed only in the few pixels the drifting .stage uncovers at the edges. */
+body {
+  background: linear-gradient(to bottom, var(--maroon) 0, var(--maroon) var(--hdr, 12vh), var(--ink) var(--hdr, 12vh));
+}
+body.is-idle { background: #000; }
+
 .stage {
   position: fixed;
   top: 0; right: 0; bottom: 0; left: 0;
   overflow: hidden;
   background: var(--ink);
-  transition: transform 2s ease;
+  will-change: transform;   /* slow OLED drift, driven from app.js */
 }
 
 /* ---------- Views + crossfade ---------- */
@@ -76,7 +82,7 @@ html, body {
 
 .title {
   display: inline-block;
-  max-width: calc(100% - var(--title) * 3.4); /* leave room for the clock */
+  max-width: calc(100% - var(--title) * 4); /* leave room for the clock */
   margin: 0;
   padding-bottom: 0.14em;
   border-bottom: max(2px, calc(var(--u) * 0.55)) solid var(--gold);
@@ -108,20 +114,26 @@ html, body {
   top: var(--pad-top);
   right: var(--pad-x);
   z-index: 10;
-  height: calc(var(--title) * 1.15);
   display: flex;
-  align-items: center;
-  font-size: calc(var(--title) * 0.62);
+  align-items: baseline;
+  font-size: calc(var(--title) * 0.86);
+  line-height: calc(1.15 / 0.86);   /* same line box as the title, so they share a baseline */
   font-weight: 700;
   color: var(--white);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.clock-ap {
+  margin-left: 0.2em;
+  font-size: 0.5em;
+  color: var(--gold);
+  letter-spacing: 0.02em;
+}
 
 .dots {
   position: absolute;
   left: 0; right: 0;
-  bottom: max(calc(var(--u) * 2.6), env(safe-area-inset-bottom));
+  bottom: max(calc(var(--u) * 3.6), env(safe-area-inset-bottom));
   z-index: 10;
   display: flex;
   justify-content: center;

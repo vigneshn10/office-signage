@@ -41,7 +41,8 @@ To let others edit `data/` files in the GitHub web editor, add them under **Sett
 
 ## 2. Quote of the Day Action
 
-Runs daily at 12:23 AM and 6:23 AM Phoenix, or on demand from **Actions → Fetch quote of the day → Run workflow**.
+Runs daily at 12:23 AM and 6:23 AM Phoenix, whenever the workflow file itself is pushed, or on demand from
+**Actions → Fetch quote of the day → Run workflow**.
 It reads BrainyQuote's official **Funny Quote** RSS feed (`https://www.brainyquote.com/link/quotefu.rss`, the feed
 behind `/feeds/funny`), writes `data/quote.json`, commits only if the quote changed, and asks Pages to rebuild.
 The slide keeps its "Quote of the Day" title. For regular quotes instead, set `FEED_URL` in the workflow to
@@ -111,7 +112,9 @@ Any file can still be edited by hand in GitHub's web editor (pencil icon → edi
 - **Office hours:** `ACTIVE_HOURS` in `app.js` (days, start, end). The switch happens within a second of the boundary;
   the idle clock is true black and drifts slightly every minute so nothing burns in.
 - **Daily reload** at 2:00 AM Phoenix, only once the site answers, so an outage never leaves a browser error page.
-- Screen wake lock where supported, and a ~1 px shift every 10 minutes to limit OLED burn-in.
+- **OLED care:** the whole screen drifts slowly and continuously (up to ±2% sideways, ±1.2% vertically, never
+  resting on the same pixels), the after-hours clock jumps to a new spot every minute on true black, and the views
+  rotate. Tune with `OLED_ORBIT` / `IDLE_DRIFT_MS` in `app.js`. Screen wake lock is requested where supported.
 
 ## Local preview and testing
 

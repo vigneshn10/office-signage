@@ -70,8 +70,10 @@
     // When someone has time off on a day this week, their row reads "Time Off".
     TIMEOFF_OVERRIDES_SCHEDULE: true,
 
-    // Shift the whole screen by ~1px every 10 min to limit OLED burn-in. 0 = off.
-    BURN_IN_SHIFT_MS: 10 * 60 * 1000
+    // OLED care: the whole screen drifts slowly and continuously, sweeping up to
+    // X_VW % of the width and Y_VH % of the height either way, so no text edge,
+    // divider or clock digit sits on the same pixels for long. STEP_MS 0 = off.
+    OLED_ORBIT: { X_VW: 2, Y_VH: 1.2, STEP_MS: 5000 }
   };
 
   // Funny fallbacks, shown when data/quote.json is missing, malformed, or stale. Rotates daily.
@@ -990,15 +992,16 @@
       });
     }
     var now = new Date();
-    dom.clock.textContent = clockFmt.format(now);
 
-    // Idle clock: "4:07" + "PM", date underneath.
+    // "4:07" + "PM" for both the corner clock and the idle clock.
     var hm = '', ap = '';
     clockFmt.formatToParts(now).forEach(function (p) {
       if (p.type === 'hour') hm = p.value + hm;
       else if (p.type === 'minute') hm = hm + ':' + p.value;
       else if (p.type === 'dayPeriod') ap = p.value;
     });
+    if (dom.clockHm.textContent !== hm) dom.clockHm.textContent = hm;
+    if (dom.clockAp.textContent !== ap) dom.clockAp.textContent = ap;
     if (dom.idleTime.textContent !== hm) dom.idleTime.textContent = hm;
     if (dom.idleAmpm.textContent !== ap) dom.idleAmpm.textContent = ap;
     var d = longDate(todayNum());
@@ -1042,14 +1045,29 @@
     });
   }
 
-  function burnInShift() {
-    if (!CONFIG.BURN_IN_SHIFT_MS) return;
-    var steps = [[0, 0], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]];
-    var i = 0;
-    setInterval(function () {
-      i = (i + 1) % steps.length;
-      dom.stage.style.transform = 'translate(' + (steps[i][0] * 0.25) + 'vmin,' + (steps[i][1] * 0.25) + 'vmin)';
-    }, CONFIG.BURN_IN_SHIFT_MS);
+  // Triangle wave in [-1, 1]: moves at constant speed, so every position gets equal time.
+  function tri(t) { var f = t - Math.floor(t); return f < 0.5 ? 4 * f - 1 : 3 - 4 * f; }
+
+  function oledOrbit() {
+    var O = CONFIG.OLED_ORBIT;
+    if (!O || !O.STEP_MS) return;
+    function step() {
+      var min = Date.now() / 60000;
+      // Two unrelated periods (37 and 23 minutes) trace a path that fills the whole box.
+      // Whole-pixel steps: fractional offsets leave a faint seam at the screen edge.
+      var x = Math.round(tri(min / 37) * O.X_VW / 100 * root.innerWidth);
+      var y = Math.round(tri(min / 23) * O.Y_VH / 100 * root.innerHeight);
+      dom.stage.style.transform = 'translate3d(' + x + 'px,' + y + 'px,0)';
+    }
+    step();
+    setInterval(step, O.STEP_MS);
+  }
+
+  // The page background shows in the sliver the drifting screen uncovers:
+  // maroon beside the header, dark below it (see body background in style.css).
+  function syncHeaderHeight() {
+    var h = document.querySelector('.view-header');
+    if (h) document.documentElement.style.setProperty('--hdr', h.offsetHeight + 'px');
   }
 
   /* ---------- Boot ---------- */
@@ -1072,6 +1090,8 @@
   function boot() {
     dom.stage = document.getElementById('stage');
     dom.clock = document.getElementById('clock');
+    dom.clockHm = document.getElementById('clock-hm');
+    dom.clockAp = document.getElementById('clock-ap');
     dom.dots = document.getElementById('dots');
     dom.idleInner = document.getElementById('idle-inner');
     dom.idleTime = document.getElementById('idle-time');
@@ -1088,7 +1108,8 @@
 
     tickClock();          // also shows the idle clock right away outside office hours
     keepAwake();
-    burnInShift();
+    oledOrbit();
+    syncHeaderHeight();
     scheduleDailyReload();
     if (CONFIG.IDLE_DRIFT_MS) setInterval(driftIdleClock, CONFIG.IDLE_DRIFT_MS);
 
@@ -1104,7 +1125,10 @@
     var resizeTimer;
     root.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () { if (mode.current === 'active') rerenderActive(); }, 300);
+      resizeTimer = setTimeout(function () {
+        syncHeaderHeight();
+        if (mode.current === 'active') rerenderActive();
+      }, 300);
     });
   }
 
