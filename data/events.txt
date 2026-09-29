@@ -2,7 +2,37 @@
 # First line is the event name; "Dates:" is required (past events hide automatically).
 # The next 4 upcoming events are shown, soonest first. Lines starting with "# " are ignored.
 
-Japanese Film Festival:
-Dates: Oct 3 - Oct 5, 2026
-Timings: 5:00 PM - 8:00 PM
+ASU Learning Summit:
+Dates: Sep 29, 2026 (Tues)
+Timings: 11:30 AM - 4:30 PM
+Student Worker: Balaji
+
+Tom & Jerry Screening:
+Dates: Oct 01, 2026 (Thurs)
+Timings: 5:00 PM - 10:00 PM
+Student Worker: Vignesh
+
+Moonlight movie:
+Dates: Oct 01, 2026 (Fri)
+Timings: 6:00 PM - 8:30 PM
+Student Worker: -
+
+Alex Ma Seminar:
+Dates: Oct 10, 2026 (Sat)
+Timings: 12:00 PM - 3:00 PM
+Student Worker: -
+
+Death Row Screening:
+Dates: Oct 10, 2026 (Sat)
+Timings: 3:00 PM - 7:00 PM
+Student Worker: -
+
+ReMIX!:
+Dates: Oct 14 - Oct 18 (wed - sun)
+Timings: 8:00 AM - 8:00 PM
+Student Worker: Balaji & Mohitraj
+
+PEI Innovation Summit:
+Dates: Oct 30, 2026 (Fri)
+Timings: 7:00 AM - 5:00 PM
 Student Worker: -
