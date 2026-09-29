@@ -202,6 +202,8 @@
 
   function parseDateRange(str, todayN) {
     var s = String(str || '').replace(/[–—−]/g, '-').replace(/\s+/g, ' ').trim();
+    // Drop any "(Tues)" / "(wed - sun)" weekday note — decorative, not part of the date.
+    s = s.replace(/\([^()]*\)/g, ' ').replace(/\s+/g, ' ').trim();
     if (!s) return null;
     var a, b, parts;
     var single = parseDatePart(s);
