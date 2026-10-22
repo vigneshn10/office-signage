@@ -1,33 +1,72 @@
 # Upcoming events for the office screen. One block per event, blank line between events.
 # First line is the event name; "Dates:" is required (past events hide automatically).
-# The next 4 upcoming events are shown, soonest first. Lines starting with "# " are ignored.
-
-ASU Learning Summit:
-Dates: Sep 29, 2026 (Tues)
-Timings: 11:30 AM - 4:30 PM
-Student Worker: Balaji
-
-Tom & Jerry Screening:
-Dates: Oct 01, 2026 (Thurs)
-Timings: 5:00 PM - 10:00 PM
-Student Worker: Vignesh
-
-Moonlight movie:
-Dates: Oct 09, 2026 (Fri)
-Timings: 6:00 PM - 8:30 PM
-Student Worker: Mohitraj
-
-Death Row Screening:
-Dates: Oct 10, 2026 (Sat)
-Timings: 3:00 PM - 7:00 PM
-Student Worker: Mudassir
-
-ReMIX!:
-Dates: Oct 14 - Oct 18 (wed - sun)
-Timings: 8:00 AM - 8:00 PM
-Student Worker: Balaji & Mohitraj
+# Other lines (Timings, Location, Student Worker, Note...) are shown as "Label: value".
+# The next 8 upcoming events are shown, soonest first. Lines starting with "# " are ignored.
 
 PEI Innovation Summit:
 Dates: Oct 30, 2026 (Fri)
 Timings: 7:00 AM - 5:00 PM
+Location: Lobby + 201
+Student Worker: Vignesh & Balaji
+
+Blokada – Class Time DCP Screening:
+Dates: Nov 3, 2026 (Tue)
+Timings: 9:00 AM - 12:00 PM
+Location: 201
+Student Worker: Vignesh
+
+CSRD Screening:
+Dates: Nov 3, 2026 (Tue)
+Timings: 3:30 PM - 10:00 PM
+Location: 101
 Student Worker: -
+
+Next Gen Summit (Endless Labs):
+Dates: Nov 7, 2026 (Sat)
+Timings: 8:00 AM - TBD
+Location: Labs (TBD)
+Student Worker: -
+
+Veterans Day – University Closed:
+Dates: Nov 11, 2026 (Wed)
+Note: 310 closed, no one scheduled
+
+Moonlight Movie:
+Dates: Nov 13, 2026 (Fri)
+Timings: 5:00 PM - 8:30 PM
+Location: 201
+Student Worker: -
+
+Alex Ma Seminar:
+Dates: Nov 14, 2026 (Sat)
+Timings: 12:00 PM - 2:45 PM
+Location: 201 + 324
+Student Worker: -
+
+Poitier Hold:
+Dates: Nov 17, 2026 (Tue)
+Timings: 2:00 PM - 10:00 PM
+Location: 201
+Student Worker: -
+
+MPS Esports:
+Dates: Nov 20, 2026 (Fri)
+Timings: 7:00 AM - 4:00 PM
+Location: 201 + 324 + 334
+Student Worker: -
+
+TEL Class Support:
+Dates: Nov 21, 2026 (Sat)
+Timings: 7:30 AM - 4:30 PM
+Location: 333
+Student Worker: -
+
+Puppet Web Series Premiere:
+Dates: Nov 21, 2026 (Sat)
+Timings: 1:00 PM - 9:00 PM
+Location: 101
+Student Worker: -
+
+Thanksgiving – University Closed:
+Dates: Nov 26 - Nov 27, 2026 (Thu - Fri)
+Note: 310 closed, no one scheduled

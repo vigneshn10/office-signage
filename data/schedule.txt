@@ -1,27 +1,60 @@
-# Weekly schedule for the office screen. Dates are added automatically (this week's Mon-Fri).
-# Format: a "Day:" line, then "Name: value" lines, blank line between days.
+# Weekly schedule for the office screen.
+# Format: a day header, then "Name: value" lines, blank line between days.
+# Put the date in the header, e.g. "Monday (10/26):", and several weeks can live in this file:
+#   the screen shows the current Mon-Fri (on weekends, the coming week). Past days can be deleted any time.
+#   A plain "Monday:" header (no date) means "every week"; it's only used for weeks with no dated days.
 # Value = a time range (9:00 AM - 1:00 PM), "Not Scheduled", or any text (e.g. "Half day"), shown as typed.
 # No line for someone under a day = they aren't shown that day.
+# "Closed: Veterans Day" under a day shows the whole day as closed (no one listed).
 # Julia's and Melissa's regular hours live in app.js; add a line for them only to override one day.
-# The Google Form edits this file automatically. Lines starting with "# " are ignored.
+# Time off from timeoff.txt shows automatically. Lines starting with "# " are ignored.
 
-Monday:
-Vignesh: 8:00 AM - 11:00 AM
-Balaji: Not Scheduled
+# ---- Week of Oct 19 ----
+Monday (10/19):
+Balaji: 8:00 AM - 11:00 AM
+Mohith: 8:00 AM - 11:00 AM
 
-Tuesday:
+Tuesday (10/20):
 Vignesh: 8:30 AM - 5:30 PM
-Balaji: 9:00 AM - 5:30 PM
+Mohith: 8:00 AM - 4:00 PM
 
-Wednesday:
+Wednesday (10/21):
 Vignesh: 8:00 AM - 11:00 AM
-Balaji: Not Scheduled
 
-Thursday:
-Vignesh: Not Scheduled
+Thursday (10/22):
+Vignesh: 8:30 AM - 5:30 PM
 Balaji: 1:00 PM - 5:30 PM
 
-Friday:
-Vignesh: Not Scheduled
+Friday (10/23):
 Balaji: 9:00 AM - 5:30 PM
-Mohitraj: 4:00 PM - 8:30 PM
+Mohith: 8:00 AM - 5:00 PM
+
+# ---- Week of Oct 26 ----
+Monday (10/26):
+Mohith: 8:00 AM - 11:00 AM
+
+Tuesday (10/27):
+Balaji: 9:00 AM - 5:30 PM
+Mohith: 8:30 AM - 5:30 PM
+
+Wednesday (10/28):
+Vignesh: 8:00 AM - 11:00 AM
+
+Thursday (10/29):
+Vignesh: 8:30 AM - 5:30 PM
+Balaji: 1:00 PM - 5:30 PM
+Mohith: 8:30 AM - 5:30 PM
+
+Friday (10/30):
+Vignesh: 7:30 AM - 4:00 PM
+Balaji: 8:30 AM - 5:00 PM
+
+# ---- University closed ----
+Wednesday (11/11):
+Closed: Veterans Day
+
+Thursday (11/26):
+Closed: Thanksgiving
+
+Friday (11/27):
+Closed: Thanksgiving

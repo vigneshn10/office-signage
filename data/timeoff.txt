@@ -4,10 +4,5 @@
 # Past entries hide automatically; upcoming ones are sorted soonest-first.
 # The Google Form appends new lines at the bottom. Lines starting with "# " are ignored.
 
-Vignesh: October 12, 2026 - October 14, 2026
-Melissa: Oct 6, 2026
-Julia: Oct 7, 2026
-Julia: Oct 20, 2026
-Julia: Oct 30, 2026
-Balaji: Oct 10, 2026
-Balaji: Oct 13, 2026
+Julia: Oct 19 - Nov 2, 2026
+Melissa: Nov 6 - Nov 16, 2026
