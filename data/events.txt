@@ -1,7 +1,8 @@
 # Upcoming events for the office screen. One block per event, blank line between events.
 # First line is the event name; "Dates:" is required (past events hide automatically).
 # Other lines (Timings, Location, Student Worker, Note...) are shown as "Label: value".
-# The next 8 upcoming events are shown, soonest first. Lines starting with "# " are ignored.
+# Upcoming events show soonest first, as many as fit on the screen; an event drops off once
+# its end time has passed. Lines starting with "# " are ignored.
 
 PEI Innovation Summit:
 Dates: Oct 30, 2026 (Fri)

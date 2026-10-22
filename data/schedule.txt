@@ -1,7 +1,7 @@
 # Weekly schedule for the office screen.
 # Format: a day header, then "Name: value" lines, blank line between days.
 # Put the date in the header, e.g. "Monday (10/26):", and several weeks can live in this file:
-#   the screen shows the current Mon-Fri (on weekends, the coming week). Past days can be deleted any time.
+#   the screen shows today and the weekdays after it, as many as fit. Past days can be deleted any time.
 #   A plain "Monday:" header (no date) means "every week"; it's only used for weeks with no dated days.
 # Value = a time range (9:00 AM - 1:00 PM), "Not Scheduled", or any text (e.g. "Half day"), shown as typed.
 # No line for someone under a day = they aren't shown that day.

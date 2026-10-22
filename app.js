@@ -24,12 +24,12 @@
 
     VIEW_ORDER: ['schedule', 'events', 'quote'],
     VIEW_DURATION_MS: { schedule: 20000, events: 15000, quote: 15000 },
-    // If Schedule + Time Off don't fit at a readable size, the schedule slot is
-    // split: day list first, then Time Off. This is the day list's share.
+    // The schedule shows today and the weekdays after it (never past days), as many as fit
+    // at a readable size with Time Off below. If Time Off leaves room for fewer than 2 days,
+    // the schedule slot is split: days first, then Time Off. This is the days' share.
     SCHEDULE_SPLIT_RATIO: 0.6,
-    // If the events don't fit on one screen at a readable size they are split
-    // into pages; each page stays up this long (the Events slot grows to match).
-    EVENTS_PAGE_MS: 10000,
+    SCHEDULE_DAYS_MAX: 10,            // look this many weekdays ahead at most
+    EVENTS_PAGE_MS: 10000,            // (only used if a view ever has several pages)
     FADE_MS: 300,
 
     REFRESH_MS: 5 * 60 * 1000,        // re-fetch every data file
@@ -49,13 +49,13 @@
       quote: 'data/quote.json'
     },
 
-    EVENTS_MAX: 8,                    // upcoming events shown (cards shrink, then page)
+    EVENTS_MAX: 12,                   // upcoming events considered; the screen shows as many as fit
     TIMEOFF_MAX: 8,
     QUOTE_MAX_AGE_DAYS: 2,            // older quote.json -> use the fallback list
 
     // Auto-fit: multiplier on the base type size from style.css.
     FIT: {
-      READABLE_MIN: 0.9,  // Schedule + Time Off must fit at >= this, otherwise split
+      READABLE_MIN: 0.9,  // days / events are added only while text stays at least this big
       FLOOR: 0.7,         // never shrink below this (very small screens)
       MAX: 1.6,           // grow text when there is spare room
       QUOTE_MAX: 2.4
@@ -333,7 +333,7 @@
 
   function weekFileRows(schedDays, monday) {
     var byDate = {};
-    var any = false;
+    var any = false, staffed = false;
     ((schedDays && schedDays.dated) || []).forEach(function (b) {
       var n = headerDate(b.when, monday);
       if (n === null) {
@@ -345,13 +345,17 @@
         console.warn('[signage] schedule.txt: "' + b.when + '" is not a ' + DAY_SHORT[b.key] + '; using the date');
       }
       any = true;
+      if (b.rows.some(function (row) { return !CLOSED_RE.test(row.name); })) staffed = true;
       var list = byDate[n] || (byDate[n] = []);
       b.rows.forEach(function (row) { upsertRow(list, row.name, row.value); });
     });
-    return WORK_DAYS.map(function (key, i) {
-      if (any) return byDate[monday + i] || [];
-      return (schedDays && schedDays[key]) || [];
-    });
+    return {
+      rows: WORK_DAYS.map(function (key, i) {
+        if (any) return byDate[monday + i] || [];
+        return (schedDays && schedDays[key]) || [];
+      }),
+      staffed: staffed   // has a dated day with people on it (not just "Closed")
+    };
   }
 
   // timeoff.txt -> [{name, when, note}] (dates resolved at render time)
@@ -465,55 +469,97 @@
     return false;
   }
 
+  function buildDay(key, date, fileRows, timeoffAll, todayN) {
+    var rows = [];
+
+    // "Closed: Veterans Day" -> the whole day shows Closed, nobody else listed.
+    var closed = null;
+    fileRows.forEach(function (r) { if (CLOSED_RE.test(r.name)) closed = r; });
+    if (closed) {
+      rows.push({ name: 'Closed', kind: 'note', text: closed.value });
+      return { key: key, date: date, isToday: date === todayN, isPast: date < todayN, rows: rows, closed: true };
+    }
+
+    var free = fileRows
+      .map(function (r, idx) { return { r: r, idx: idx }; })
+      .filter(function (x) {
+        return !CONFIG.FIXED_STAFF.some(function (s) { return sameName(s.name, x.r.name); });
+      })
+      .sort(function (a, b) { return rosterRank(a.r.name) - rosterRank(b.r.name) || a.idx - b.idx; });
+    free.forEach(function (x) {
+      var c = classifyValue(x.r.value);
+      rows.push({ name: x.r.name, kind: c.kind, text: c.text });
+    });
+
+    CONFIG.FIXED_STAFF.forEach(function (s) {
+      var override = null;
+      fileRows.forEach(function (r) { if (sameName(r.name, s.name)) override = r; });
+      if (override) {
+        var c = classifyValue(override.value);
+        rows.push({ name: s.name, kind: c.kind, text: c.text });
+      } else if (s.days.indexOf(key) >= 0) {
+        rows.push({ name: s.name, kind: 'hours', text: s.hours });
+      }
+    });
+
+    if (CONFIG.TIMEOFF_OVERRIDES_SCHEDULE && timeoffAll && timeoffAll.length) {
+      rows.forEach(function (r) {
+        if (r.kind !== 'none' && isOffOn(timeoffAll, r.name, date)) { r.kind = 'off'; r.text = 'Time Off'; }
+      });
+    }
+
+    return { key: key, date: date, isToday: date === todayN, isPast: date < todayN, rows: rows };
+  }
+
+  // Mon-Fri of the week being shown (this week; on weekends, the coming one).
   function buildWeek(schedDays, timeoffAll, todayN) {
     var monday = weekMonday(todayN);
-    var weekRows = weekFileRows(schedDays, monday);
+    var wk = weekFileRows(schedDays, monday);
     return WORK_DAYS.map(function (key, i) {
-      var date = monday + i;
-      var fileRows = weekRows[i];
-      var rows = [];
-
-      // "Closed: Veterans Day" -> the whole day shows Closed, nobody else listed.
-      var closed = null;
-      fileRows.forEach(function (r) { if (CLOSED_RE.test(r.name)) closed = r; });
-      if (closed) {
-        rows.push({ name: 'Closed', kind: 'note', text: closed.value });
-        return { key: key, date: date, isToday: date === todayN, isPast: date < todayN, rows: rows, closed: true };
-      }
-
-      var free = fileRows
-        .map(function (r, idx) { return { r: r, idx: idx }; })
-        .filter(function (x) {
-          return !CONFIG.FIXED_STAFF.some(function (s) { return sameName(s.name, x.r.name); });
-        })
-        .sort(function (a, b) { return rosterRank(a.r.name) - rosterRank(b.r.name) || a.idx - b.idx; });
-      free.forEach(function (x) {
-        var c = classifyValue(x.r.value);
-        rows.push({ name: x.r.name, kind: c.kind, text: c.text });
-      });
-
-      CONFIG.FIXED_STAFF.forEach(function (s) {
-        var override = null;
-        fileRows.forEach(function (r) { if (sameName(r.name, s.name)) override = r; });
-        if (override) {
-          var c = classifyValue(override.value);
-          rows.push({ name: s.name, kind: c.kind, text: c.text });
-        } else if (s.days.indexOf(key) >= 0) {
-          rows.push({ name: s.name, kind: 'hours', text: s.hours });
-        }
-      });
-
-      if (CONFIG.TIMEOFF_OVERRIDES_SCHEDULE && timeoffAll && timeoffAll.length) {
-        rows.forEach(function (r) {
-          if (r.kind !== 'none' && isOffOn(timeoffAll, r.name, date)) { r.kind = 'off'; r.text = 'Time Off'; }
-        });
-      }
-
-      return { key: key, date: date, isToday: date === todayN, isPast: date < todayN, rows: rows };
+      return buildDay(key, monday + i, wk.rows[i], timeoffAll, todayN);
     });
   }
 
-  function resolveEvents(events, todayN) {
+  // Weekdays from today on (past days left out), running into the following weeks for as
+  // long as schedule.txt has dated days with people on them for that week. This week is
+  // always included. At most `max` days; the screen then shows as many as fit.
+  function buildDays(schedDays, timeoffAll, todayN, max) {
+    var monday = weekMonday(todayN);
+    var first = Math.max(0, todayN - monday);   // weekends: weekMonday is the coming Monday
+    var out = [];
+    for (var w = 0; w < 104 && out.length < max; w++) {
+      var m = monday + 7 * w;
+      var wk = weekFileRows(schedDays, m);
+      if (w > 0 && !wk.staffed) break;
+      for (var i = (w === 0 ? first : 0); i < WORK_DAYS.length && out.length < max; i++) {
+        out.push(buildDay(WORK_DAYS[i], m + i, wk.rows[i], timeoffAll, todayN));
+      }
+    }
+    return out;
+  }
+
+  // "5:00 PM" -> 1020 minutes after midnight; null without a readable time and AM/PM.
+  function clockMinutes(t) {
+    var m = /^(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\.?$/i.exec(String(t).trim());
+    if (!m || +m[1] > 12 || +(m[2] || 0) > 59) return null;
+    return (+m[1] % 12 + (m[3].toLowerCase() === 'p' ? 12 : 0)) * 60 + +(m[2] || 0);
+  }
+
+  // End time from an event's "Timings: 3:30 PM - 10:00 PM" line, or null if unknown
+  // ("8:00 AM - TBD", no AM/PM, or running past midnight).
+  function eventEndMinutes(ev) {
+    for (var i = 0; i < ev.fields.length; i++) {
+      if (!/^(timings?|times?)$/i.test(ev.fields[i].key)) continue;
+      var m = TIME_RANGE_RE.exec(ev.fields[i].value.replace(/[–—]/g, '-').trim());
+      if (!m) return null;
+      var a = clockMinutes(m[1]), b = clockMinutes(m[2]);
+      return a !== null && b !== null && b > a ? b : null;
+    }
+    return null;
+  }
+
+  // nowMinutes (optional, Phoenix time): an event on its last day drops off once its end time has passed.
+  function resolveEvents(events, todayN, nowMinutes) {
     var dated = [];
     (events || []).forEach(function (ev) {
       var r = parseDateRange(ev.dates, todayN);
@@ -522,7 +568,14 @@
     if (events && events.length && !dated.length) {
       throw new Error('events.txt: no event had a readable "Dates:" line');
     }
-    var upcoming = dated.filter(function (x) { return x.end >= todayN; });
+    var upcoming = dated.filter(function (x) {
+      if (x.end < todayN) return false;
+      if (x.end === todayN && nowMinutes !== undefined && nowMinutes !== null) {
+        var endMin = eventEndMinutes(x.ev);
+        if (endMin !== null && nowMinutes >= endMin) return false;
+      }
+      return true;
+    });
     upcoming.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
     return upcoming.slice(0, CONFIG.EVENTS_MAX);
   }
@@ -686,8 +739,10 @@
   /* ---------- View 1: Schedule ---------- */
   function daysNode(week) {
     var wrap = el('div', 'days');
-    week.forEach(function (day) {
-      var d = el('div', 'day' + (day.isToday ? ' is-today' : '') + (day.isPast ? ' is-past' : ''));
+    week.forEach(function (day, i) {
+      var newWeek = i > 0 && day.date - week[i - 1].date > 1;   // e.g. Fri -> Mon
+      var d = el('div', 'day' + (day.isToday ? ' is-today' : '') + (day.isPast ? ' is-past' : '') +
+        (newWeek ? ' new-week' : ''));
       var lab = el('div', 'day-label');
       lab.appendChild(el('span', 'dow', DAY_SHORT[day.key]));
       lab.appendChild(el('span', 'dom', monthDay(day.date)));
@@ -734,32 +789,54 @@
 
   function renderSchedule(view) {
     var today = todayNum();
-    var monday = weekMonday(today);
-    setSubtitle(view, weekLabel(monday, today));
-    if (!store.schedule.ok) return renderPlaceholder(view, 'Schedule unavailable — retrying…');
+    if (!store.schedule.ok) {
+      setSubtitle(view, weekLabel(weekMonday(today), today));
+      return renderPlaceholder(view, 'Schedule unavailable — retrying…');
+    }
 
     var toModel = null;
     if (store.timeoff.ok) {
       try { toModel = resolveTimeOff(store.timeoff.data, today); } catch (e) { console.warn(e.message); }
     }
-    var week = buildWeek(store.schedule.data, toModel ? toModel.all : [], today);
-
+    var days = buildDays(store.schedule.data, toModel ? toModel.all : [], today, CONFIG.SCHEDULE_DAYS_MAX);
+    var R = CONFIG.FIT.READABLE_MIN, F = CONFIG.FIT.FLOOR, M = CONFIG.FIT.MAX;
     var body = view.querySelector('.view-body');
+
+    function frame(n, withTimeOff) {
+      var f = newFrame(body, false);
+      f.fit.appendChild(daysNode(days.slice(0, n)));
+      if (withTimeOff) f.fit.appendChild(timeOffNode(toModel, today));
+      return f;
+    }
+    // Most days (from today on) that fit at a readable size; the list grows one day at a time.
+    function most(withTimeOff) {
+      for (var n = days.length; n >= 1; n--) {
+        body.textContent = '';
+        if (fitsAt(frame(n, withTimeOff), R)) return n;
+      }
+      return 0;
+    }
+    function label(n) {
+      return days.length ? formatDayRange(days[0].date, days[Math.max(n, 1) - 1].date, today) : '';
+    }
+
+    // 1) Days + Time Off on one screen, if that leaves room for at least 2 days.
+    var n = most(true);
+    if (n >= Math.min(2, days.length)) {
+      body.textContent = '';
+      fitFrame(frame(n, true), F, M);
+      setSubtitle(view, label(n));
+      return 1;
+    }
+
+    // 2) Split: days first, then Time Off, each on its own screen.
+    var n2 = Math.max(1, most(false));
     body.textContent = '';
-
-    // 1) Try everything in one frame, shrinking no further than READABLE_MIN.
-    var f0 = newFrame(body, false);
-    f0.fit.appendChild(daysNode(week));
-    var toNode = timeOffNode(toModel, today);
-    f0.fit.appendChild(toNode);
-    if (fitFrame(f0, CONFIG.FIT.READABLE_MIN, CONFIG.FIT.MAX).fits) return 1;
-
-    // 2) Split: day list, then Time Off, each fitted on its own.
-    f0.fit.removeChild(toNode);
-    fitFrame(f0, CONFIG.FIT.FLOOR, CONFIG.FIT.MAX);
+    fitFrame(frame(n2, false), F, M);
     var f1 = newFrame(body, false);
-    f1.fit.appendChild(toNode);
-    fitFrame(f1, CONFIG.FIT.FLOOR, CONFIG.FIT.MAX);
+    f1.fit.appendChild(timeOffNode(toModel, today));
+    fitFrame(f1, F, M);
+    setSubtitle(view, label(n2));
     return 2;
   }
 
@@ -771,14 +848,14 @@
       return renderPlaceholder(view, 'Events unavailable — retrying…');
     }
     var items;
-    try { items = resolveEvents(store.events.data, today); } catch (e) {
+    var now = phoenixParts();
+    try { items = resolveEvents(store.events.data, today, now.h * 60 + now.mi); } catch (e) {
       console.warn(e.message);
       setSubtitle(view, '');
       return renderPlaceholder(view, 'Events unavailable — retrying…');
     }
-    var label = items.length > 1 ? 'Next ' + items.length + ' events'
-      : items.length === 1 ? 'Next event' : 'Nothing on the calendar';
-    setSubtitle(view, label);
+    function label(n) { return n > 1 ? 'Next ' + n + ' events' : n === 1 ? 'Next event' : 'Nothing on the calendar'; }
+    setSubtitle(view, label(items.length));
 
     var body = view.querySelector('.view-body');
     body.textContent = '';
@@ -792,12 +869,8 @@
       return 1;
     }
 
-    var pages = layoutEvents(body, items, today);
-    if (pages.length > 1) {
-      view._subtitles = pages.map(function (_, i) { return label + ' · ' + (i + 1) + '/' + pages.length; });
-      setSubtitle(view, view._subtitles[0]);
-    }
-    return pages.length;
+    setSubtitle(view, label(layoutEvents(body, items, today)));
+    return 1;
   }
 
   // One event card, in one of three layouts:
@@ -842,62 +915,31 @@
     return card;
   }
 
-  // Cards resize to the space available. All events on one screen in whichever
-  // layout gives the largest text; if even the best is below READABLE_MIN, compact
-  // cards are spread evenly over pages that each fit at a readable size.
+  // One screen, soonest events first: as many as fit at a readable size (compact cards
+  // are the densest), then whichever card layout gives those the biggest text.
+  // Later events show up as earlier ones pass. Returns how many are shown.
   function layoutEvents(body, items, today) {
     var R = CONFIG.FIT.READABLE_MIN, F = CONFIG.FIT.FLOOR, M = CONFIG.FIT.MAX;
 
     function onePage(list, layout) {
+      body.textContent = '';
       var fr = newFrame(body, true);
       list.forEach(function (x) { fr.fit.appendChild(eventCard(x, today, layout)); });
       return fr;
     }
 
-    var layouts = ['stacked', 'grid', 'compact'];
+    var n = items.length;
+    while (n > 1 && !fitsAt(onePage(items.slice(0, n), 'compact'), R)) n--;
+    var list = items.slice(0, n);
+
     var best = null;
-    layouts.forEach(function (layout) {
-      body.textContent = '';
-      var r = fitFrame(onePage(items, layout), F, M);
+    ['stacked', 'grid', 'compact'].forEach(function (layout) {
+      var r = fitFrame(onePage(list, layout), F, M);
       // Prefer the roomier layout unless another one gives clearly bigger text.
       if (r.fits && (!best || r.fit > best.fit * 1.04)) best = { layout: layout, fit: r.fit };
     });
-    if (best && best.fit >= R) {
-      body.textContent = '';
-      var single = onePage(items, best.layout);
-      fitFrame(single, F, M);
-      return [single];
-    }
-
-    // How many pages does a greedy fill need?
-    body.textContent = '';
-    var count = 1;
-    var probe = newFrame(body, true);
-    items.forEach(function (x) {
-      var card = eventCard(x, today, 'compact');
-      probe.fit.appendChild(card);
-      if (probe.fit.children.length > 1 && !fitsAt(probe, R)) {
-        count++;
-        probe.fit.textContent = '';
-        probe.fit.appendChild(card);
-      }
-    });
-
-    // Spread the events evenly over that many pages (add a page if a chunk is too tall).
-    var pages;
-    for (var n = count; n <= items.length; n++) {
-      body.textContent = '';
-      pages = [];
-      var per = Math.ceil(items.length / n);
-      for (var i = 0; i < items.length; i += per) pages.push(onePage(items.slice(i, i + per), 'compact'));
-      if (pages.every(function (p) { return fitsAt(p, R) || p.fit.children.length === 1; })) break;
-    }
-
-    // Same text size on every page: the largest size all of them can take.
-    var size = M;
-    pages.forEach(function (p) { size = Math.min(size, fitFrame(p, F, M).fit); });
-    pages.forEach(function (p) { p.fit.style.setProperty('--fit', size.toFixed(3)); });
-    return pages;
+    fitFrame(onePage(list, best ? best.layout : 'compact'), F, M);
+    return n;
   }
 
   /* ---------- View 3: Quote of the Day ---------- */
@@ -1266,7 +1308,8 @@
     dayNum: dayNum, ymdOf: ymdOf, weekdayOf: weekdayOf, weekMonday: weekMonday,
     parseDatePart: parseDatePart, parseDateRange: parseDateRange,
     parseSchedule: parseSchedule, parseTimeOff: parseTimeOff, parseEvents: parseEvents, parseQuote: parseQuote,
-    classifyValue: classifyValue, buildWeek: buildWeek, resolveTimeOff: resolveTimeOff,
+    classifyValue: classifyValue, buildWeek: buildWeek, buildDays: buildDays, resolveTimeOff: resolveTimeOff,
+    eventEndMinutes: eventEndMinutes,
     resolveEvents: resolveEvents, pickQuote: pickQuote, formatDayRange: formatDayRange, weekLabel: weekLabel,
     officeOpen: officeOpen,
     refreshNow: refreshAll,  // e.g. Signage.refreshNow() from the browser console

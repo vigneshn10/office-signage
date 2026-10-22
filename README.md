@@ -89,7 +89,9 @@ Lines starting with `# ` (hash + space) are comments in every `.txt` file.
 **schedule.txt**: `Day:` header, then `Name: value` lines, blank line between days. Value is a time range, `Not Scheduled`
 (any case), or any other text, which is shown exactly as typed. No line for a person under a day → not shown that day.
 Julia (Tue–Fri 7:30–5:30) and Melissa (Mon–Fri 8–5) are fixed rows from `CONFIG.FIXED_STAFF` in `app.js`.
-The screen shows the current Mon–Fri, and on Saturday/Sunday the coming week.
+The screen shows today and the weekdays after it (never past days), as many as fit at a readable size, with Time Off
+below; it runs into the following weeks only while they have dated days with people on them. On weekends it starts
+from Monday.
 Headers can carry a date — `Monday (10/26):`, `Mon 10/26:`, `Monday, Oct 26:` — so several weeks (and future
 holidays) can sit in the file at once; the screen picks the days of the week it's showing, and past days can be deleted
 any time. If any dated day falls in that week, only dated days are used for it. Plain `Monday:` headers apply to weeks
@@ -101,8 +103,9 @@ Anyone on time off that day shows "Time Off" in the schedule (`TIMEOFF_OVERRIDES
 
 **events.txt**: first line is the title (`Japanese Film Festival:`), then `Dates:`, `Timings:`, `Location:`, `Student Worker:`
 (any extra `Key: value` lines are shown too; a weekday note like `(Tue)` after the date is ignored). Blank line between events. Events without a readable `Dates:` line are skipped.
-Up to 8 upcoming events are shown (`EVENTS_MAX` in `app.js`). Cards grow when there are few and shrink as you add more;
-if they'd drop below a readable size they switch to a compact layout, then split into pages (10 s each, "1/2" in the header).
+Upcoming events are shown soonest first, as many as fit on one screen at a readable size (of the next `EVENTS_MAX` = 12);
+the rest appear as earlier ones pass. An event on its last day drops off once its `Timings:` end time has passed
+(events without a clear end time, like `8:00 AM - TBD`, stay all day).
 
 **quote.json**: `{ "date": "YYYY-MM-DD", "text": "...", "author": "..." }` (+ `link`, `source`, `fetchedAt`).
 

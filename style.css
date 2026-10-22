@@ -282,6 +282,9 @@ body.is-idle { background: #000; }
 .day.is-today + .day { border-top-color: transparent; }
 .day.is-today .dom { color: rgba(255, 255, 255, 0.82); }
 .day.is-past { opacity: 0.5; }
+/* First day of the following week (Fri -> Mon): a stronger rule marks the break. */
+.day.new-week,
+.day.is-today + .day.new-week { border-top: calc(var(--hair) * 3) solid var(--gold); }
 
 .row {
   display: grid;
