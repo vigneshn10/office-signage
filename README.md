@@ -7,7 +7,7 @@ full-screen clock. Schedule and time-off changes arrive from a weekly Google For
 
 ```
 index.html  style.css  app.js
-data/schedule.txt   weekly schedule (Form writes here; hand-editable)
+data/schedule.txt   schedule, one or more weeks (Form writes here; hand-editable)
 data/timeoff.txt    time off (Form appends here; hand-editable)
 data/events.txt     events (hand-edited)
 data/quote.json     quote of the day (written daily by the Action)
@@ -88,14 +88,18 @@ Lines starting with `# ` (hash + space) are comments in every `.txt` file.
 **schedule.txt**: `Day:` header, then `Name: value` lines, blank line between days. Value is a time range, `Not Scheduled`
 (any case), or any other text, which is shown exactly as typed. No line for a person under a day → not shown that day.
 Julia (Tue–Fri 7:30–5:30) and Melissa (Mon–Fri 8–5) are fixed rows from `CONFIG.FIXED_STAFF` in `app.js`.
-The file has no dates: the screen shows the current Mon–Fri, and on Saturday/Sunday it shows the coming week.
+The screen shows the current Mon–Fri, and on Saturday/Sunday the coming week.
+Headers can carry a date — `Monday (10/26):`, `Mon 10/26:`, `Monday, Oct 26:` — so several weeks (and future
+holidays) can sit in the file at once; the screen picks the days of the week it's showing, and past days can be deleted
+any time. If any dated day falls in that week, only dated days are used for it. Plain `Monday:` headers apply to weeks
+with no dated days (the Google Form still writes these). `Closed: Veterans Day` under a day shows the whole day as closed.
 
 **timeoff.txt**: `Name: date` or `Name: start - end`. Accepted: `Nov 3, 2026`, `Oct 10 - Oct 12, 2026`, `Oct 10-12, 2026`,
 `Dec 28, 2026 - Jan 2, 2027`, `10/10/2026 - 10/12/2026`. Past entries hide; up to 8 upcoming, soonest first.
 Anyone on time off that day shows "Time Off" in the schedule (`TIMEOFF_OVERRIDES_SCHEDULE` in `app.js`).
 
-**events.txt**: first line is the title (`Japanese Film Festival:`), then `Dates:`, `Timings:`, `Student Worker:`
-(any extra `Key: value` lines are shown too). Blank line between events. Events without a readable `Dates:` line are skipped.
+**events.txt**: first line is the title (`Japanese Film Festival:`), then `Dates:`, `Timings:`, `Location:`, `Student Worker:`
+(any extra `Key: value` lines are shown too; a weekday note like `(Tue)` after the date is ignored). Blank line between events. Events without a readable `Dates:` line are skipped.
 Up to 8 upcoming events are shown (`EVENTS_MAX` in `app.js`). Cards grow when there are few and shrink as you add more;
 if they'd drop below a readable size they switch to a compact layout, then split into pages (10 s each, "1/2" in the header).
 

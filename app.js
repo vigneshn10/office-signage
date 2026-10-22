@@ -96,6 +96,7 @@
   var WORK_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
   var DAY_SHORT = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' };
   var WEEKDAY_BY_INDEX = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var WEEKDAY_INDEX = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
   var WEEKDAY_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var MONTHS_LONG = ['january', 'february', 'march', 'april', 'may', 'june', 'july',
     'august', 'september', 'october', 'november', 'december'];
@@ -259,36 +260,93 @@
 
   function splitLines(text) { return String(text || '').replace(/^﻿/, '').split(/\r?\n/); }
 
-  var DAY_HEADER_RE = /^(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\s*:\s*$/i;
+  // "Monday:" or, with a date, "Monday (10/26):", "Mon 10/26:", "Monday, Oct 26:".
+  var DAY_HEADER_RE = /^(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\.?(?:,?\s*\(?\s*([^():]*?)\s*\)?)?\s*:\s*$/i;
+  var CLOSED_RE = /^closed$/i;
 
-  // schedule.txt -> { mon: [{name, value}], tue: [...], ... }
+  function upsertRow(list, name, value) {
+    for (var i = 0; i < list.length; i++) {
+      if (sameName(list[i].name, name)) { list[i] = { name: name, value: value }; return; }
+    }
+    list.push({ name: name, value: value });
+  }
+
+  // schedule.txt -> { mon: [{name, value}], tue: [...], ... } for undated "Monday:" blocks,
+  // plus a non-enumerable .dated list [{key, when, rows}] for "Monday (10/26):" blocks.
+  // Dates are resolved in buildWeek (the year depends on "today").
   function parseSchedule(text) {
     var days = {};
-    var current = null;
+    var dated = [];
+    var list = null;
     var sawHeader = false;
     splitLines(text).forEach(function (raw) {
       var line = raw.trim();
       if (!line || isComment(line)) return;
       var h = DAY_HEADER_RE.exec(line);
       if (h) {
-        current = h[1].slice(0, 3).toLowerCase();
-        if (!days[current]) days[current] = [];
+        var key = h[1].slice(0, 3).toLowerCase();
+        var when = (h[2] || '').trim();
+        if (when) {
+          list = [];
+          dated.push({ key: key, when: when, rows: list });
+        } else {
+          if (!days[key]) days[key] = [];
+          list = days[key];
+        }
         sawHeader = true;
         return;
       }
       var m = /^([^:]+?)\s*:\s*(.*)$/.exec(line);
-      if (!m || !current) return;             // stray line: ignore
+      if (!m || !list) return;                 // stray line: ignore
       var name = m[1].trim();
       var value = m[2].trim();
-      if (!value) return;                      // "Name:" with nothing -> not shown
-      var list = days[current];
-      for (var i = 0; i < list.length; i++) {
-        if (sameName(list[i].name, name)) { list[i] = { name: name, value: value }; return; }
-      }
-      list.push({ name: name, value: value });
+      if (!value && !CLOSED_RE.test(name)) return;   // "Name:" with nothing -> not shown
+      upsertRow(list, name, value);
     });
     if (!sawHeader) throw new Error('schedule.txt: no "Monday:"-style day headers found');
+    Object.defineProperty(days, 'dated', { value: dated, enumerable: false });
     return days;
+  }
+
+  // Rows from the file for each day of the week starting `monday`. If any dated block
+  // falls on that Mon-Fri, only dated blocks are used for the week (days without one are
+  // empty); otherwise the undated "Monday:" blocks apply, as before.
+  // A header date ("10/26", "Oct 26", "Oct 26, 2026"). Without a year, take the
+  // occurrence nearest the week being shown, so "12/31" and "1/1" both land right
+  // in the week that straddles New Year.
+  function headerDate(when, monday) {
+    var p = parseDatePart(String(when).replace(/\([^()]*\)/g, ' ').replace(/\s+/g, ' ').trim());
+    if (!p || p.m0 === null) return null;
+    if (p.y !== null) return dayNum(p.y, p.m0, p.d);
+    var mid = monday + 2, y = ymdOf(mid).y, best = null;
+    [y - 1, y, y + 1].forEach(function (yy) {
+      var n = dayNum(yy, p.m0, p.d);
+      if (n !== null && (best === null || Math.abs(n - mid) < Math.abs(best - mid))) best = n;
+    });
+    return best;
+  }
+
+  function weekFileRows(schedDays, monday) {
+    var byDate = {};
+    var any = false;
+    ((schedDays && schedDays.dated) || []).forEach(function (b) {
+      var n = headerDate(b.when, monday);
+      if (n === null) {
+        console.warn('[signage] schedule.txt: can\'t read the date in "' + b.when + '"');
+        return;
+      }
+      if (n < monday || n > monday + 4) return;
+      if (weekdayOf(n) !== WEEKDAY_INDEX[b.key]) {
+        console.warn('[signage] schedule.txt: "' + b.when + '" is not a ' + DAY_SHORT[b.key] + '; using the date');
+      }
+      any = true;
+      var list = byDate[n] || (byDate[n] = []);
+      b.rows.forEach(function (row) { upsertRow(list, row.name, row.value); });
+    });
+    return WORK_DAYS.map(function (key, i) {
+      if (any) return byDate[monday + i] || [];
+      return (schedDays && schedDays[key]) || [];
+    });
   }
 
   // timeoff.txt -> [{name, when, note}] (dates resolved at render time)
@@ -404,10 +462,19 @@
 
   function buildWeek(schedDays, timeoffAll, todayN) {
     var monday = weekMonday(todayN);
+    var weekRows = weekFileRows(schedDays, monday);
     return WORK_DAYS.map(function (key, i) {
       var date = monday + i;
-      var fileRows = (schedDays && schedDays[key]) || [];
+      var fileRows = weekRows[i];
       var rows = [];
+
+      // "Closed: Veterans Day" -> the whole day shows Closed, nobody else listed.
+      var closed = null;
+      fileRows.forEach(function (r) { if (CLOSED_RE.test(r.name)) closed = r; });
+      if (closed) {
+        rows.push({ name: 'Closed', kind: 'note', text: closed.value });
+        return { key: key, date: date, isToday: date === todayN, isPast: date < todayN, rows: rows, closed: true };
+      }
 
       var free = fileRows
         .map(function (r, idx) { return { r: r, idx: idx }; })
@@ -559,6 +626,15 @@
     var c = fr.fit;
     c.style.setProperty('--fit', f.toFixed(3));
     if (c.offsetHeight > fr.el.clientHeight + 1 || c.scrollWidth > c.clientWidth + 1) return false;
+    // scrollWidth rounds to whole pixels, so a schedule time or a Time Off chip could stick
+    // out 1-2px and get clipped by the frame. Check those edges exactly.
+    var cells = c.querySelectorAll('.row > *, .to-row > *');
+    if (cells.length) {
+      var edge = c.getBoundingClientRect().right - parseFloat(getComputedStyle(c).paddingRight) + 0.5;
+      for (var j = 0; j < cells.length; j++) {
+        if (cells[j].getBoundingClientRect().right > edge) return false;
+      }
+    }
     // Dates/times that must stay on one line also have to stay inside their card's padding.
     var spans = c.querySelectorAll('.event .nowrap');
     for (var i = 0; i < spans.length; i++) {
