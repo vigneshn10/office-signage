@@ -1094,7 +1094,7 @@
     for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('active', dots[i].getAttribute('data-for') === name);
   }
 
-  // Build a screen while it's still hidden. Cats & Dogs is passed over when no new picture is ready.
+  // Build a screen while it's still hidden. LOLcats is passed over when no new picture is ready.
   function prepareView(idx) {
     for (var tries = 0; tries < rot.order.length; tries++) {
       var name = rot.order[idx];
