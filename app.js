@@ -22,8 +22,8 @@
     ACTIVE_HOURS: { days: ['mon', 'tue', 'wed', 'thu', 'fri'], start: '08:00', end: '17:30' },
     IDLE_DRIFT_MS: 60 * 1000,         // idle clock moves slightly every minute (limits burn-in)
 
-    VIEW_ORDER: ['schedule', 'events', 'quote'],
-    VIEW_DURATION_MS: { schedule: 20000, events: 15000, quote: 15000 },
+    VIEW_ORDER: ['schedule', 'events', 'quote', 'pets'],
+    VIEW_DURATION_MS: { schedule: 20000, events: 15000, quote: 15000, pets: 15000 },
     // The schedule shows today and the weekdays after it (never past days), as many as fit
     // at a readable size with Time Off below. If Time Off leaves room for fewer than 2 days,
     // the schedule slot is split: days first, then Time Off. This is the days' share.
@@ -52,6 +52,19 @@
     EVENTS_MAX: 12,                   // upcoming events considered; the screen shows as many as fit
     TIMEOFF_MAX: 8,
     QUOTE_MAX_AGE_DAYS: 2,            // older quote.json -> use the fallback list
+
+    // Cats & Dogs screen: a random picture each lap, alternating cat / dog. The next one is
+    // loaded in the background while the other screens show; if none is ready in time, the
+    // screen is skipped that lap (never a spinner or a broken image).
+    PETS: {
+      CAT_API: 'https://api.thecatapi.com/v1/images/search',
+      DOG_API: 'https://api.thedogapi.com/v1/images/search',
+      DOG_BACKUP_API: 'https://dog.ceo/api/breeds/image/random',
+      GIF_SHARE: 0.5,                 // share of pictures that try for an animated GIF first
+      API_TIMEOUT_MS: 10000,
+      LOAD_TIMEOUT_MS: 30000,
+      RETRY_MS: 2 * 60 * 1000         // after a failed try (every source), wait this long
+    },
 
     // Auto-fit: multiplier on the base type size from style.css.
     FIT: {
@@ -961,11 +974,101 @@
     return 1;
   }
 
-  var RENDER = { schedule: renderSchedule, events: renderEvents, quote: renderQuote };
+  /* ---------- View 4: Cats & Dogs ---------- */
+  var pets = { next: null, current: null, loading: false, kind: 'cat', fails: 0, retryAt: 0 };
+
+  function getJSON(url, timeoutMs) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, timeoutMs);
+    return fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (j) { clearTimeout(timer); return j; }, function (e) { clearTimeout(timer); throw e; });
+  }
+
+  function loadImage(src, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var timer = setTimeout(function () { reject(new Error('image timed out')); img.src = ''; }, timeoutMs);
+      img.onload = function () {
+        clearTimeout(timer);
+        if (img.naturalWidth > 0) resolve(img); else reject(new Error('empty image'));
+      };
+      img.onerror = function () { clearTimeout(timer); reject(new Error('image failed to load')); };
+      img.alt = '';
+      img.decoding = 'async';
+      img.src = src;
+    });
+  }
+
+  // Where to look, in order: [JSON URL, json -> image URL]. Cats: TheCatAPI (GIF first about
+  // half the time, then stills). Dogs: TheDogAPI the same way, then dog.ceo as a backup.
+  function petSources(kind) {
+    var P = CONFIG.PETS;
+    var api = kind === 'cat' ? P.CAT_API : P.DOG_API;
+    var first = Math.random() < P.GIF_SHARE ? 'gif' : 'jpg,png,gif';
+    var fromApi = function (j) { return j && j[0] && j[0].url; };
+    var list = [[api + '?mime_types=' + first, fromApi], [api + '?mime_types=jpg,png', fromApi]];
+    if (kind === 'dog') list.push([P.DOG_BACKUP_API, function (j) { return j && j.status === 'success' && j.message; }]);
+    return list;
+  }
+
+  function fetchPet(kind) {
+    var sources = petSources(kind);
+    function attempt(i) {
+      if (i >= sources.length) return Promise.reject(new Error('no ' + kind + ' picture'));
+      return getJSON(sources[i][0], CONFIG.PETS.API_TIMEOUT_MS)
+        .then(function (j) {
+          var url = sources[i][1](j);
+          if (typeof url !== 'string' || !/^https:\/\//.test(url)) throw new Error('no picture in the reply');
+          return loadImage(url, CONFIG.PETS.LOAD_TIMEOUT_MS);
+        })
+        .then(function (img) { return { kind: kind, img: img }; }, function (e) {
+          console.warn('[signage] ' + kind + ' picture: ' + e.message);
+          return attempt(i + 1);
+        });
+    }
+    return attempt(0);
+  }
+
+  // Load the next picture in the background (alternating cat / dog, so if one source is
+  // down the other kind is tried next time).
+  function preloadPet() {
+    if (pets.next || pets.loading || Date.now() < pets.retryAt || rot.order.indexOf('pets') < 0) return;
+    pets.loading = true;
+    var kind = pets.kind;
+    pets.kind = kind === 'cat' ? 'dog' : 'cat';
+    fetchPet(kind).then(function (pic) { pets.next = pic; pets.fails = 0; }, function () {
+      // Cat and dog both failed in a row: give the services a break before trying again.
+      if (++pets.fails >= 2) { pets.fails = 0; pets.retryAt = Date.now() + CONFIG.PETS.RETRY_MS; }
+    }).then(function () { pets.loading = false; });
+  }
+
+  function renderPets(view) {
+    if (pets.next) { pets.current = pets.next; pets.next = null; }
+    setTimeout(preloadPet, 0);                  // start on the one after right away
+    var pic = pets.current;
+    if (!pic) {                                 // only when pinned with ?view=pets
+      setSubtitle(view, '');
+      return renderPlaceholder(view, 'Finding a cat…');
+    }
+    setSubtitle(view, pic.kind === 'cat' ? 'Random cat' : 'Random dog');
+    var body = view.querySelector('.view-body');
+    body.textContent = '';
+    var fr = newFrame(body, true);
+    fr.fit.className = 'fit pet';
+    fr.fit.appendChild(pic.img);
+    return 1;
+  }
+
+  var RENDER = { schedule: renderSchedule, events: renderEvents, quote: renderQuote, pets: renderPets };
   var FAIL_MSG = {
     schedule: 'Schedule unavailable — retrying…',
     events: 'Events unavailable — retrying…',
-    quote: 'Quote unavailable — retrying…'
+    quote: 'Quote unavailable — retrying…',
+    pets: 'Pictures unavailable'
   };
 
   // A view that throws never stops the rotation: it shows its placeholder instead.
@@ -1012,6 +1115,11 @@
     clearRotationTimers();
     rot.idx = idx;
     var name = rot.order[idx];
+    preloadPet();
+    if (name === 'pets' && !pets.next && rot.order.length > 1) {
+      show((idx + 1) % rot.order.length);       // no new picture yet: skip it this lap
+      return;
+    }
     var view = viewEl(name);
     var frames = safeRender(name, view);
     setFrame(view, 0);
@@ -1267,8 +1375,9 @@
     dom.idleDate = document.getElementById('idle-date');
     document.documentElement.style.setProperty('--fade', CONFIG.FADE_MS + 'ms');
     readDebugParams();
+    rot.order = rot.order.filter(function (name) { return !!viewEl(name); });
 
-    CONFIG.VIEW_ORDER.forEach(function (name) {
+    CONFIG.VIEW_ORDER.filter(function (name) { return !!viewEl(name); }).forEach(function (name) {
       var d = el('span', 'dot');
       d.setAttribute('data-for', name);
       dom.dots.appendChild(d);
