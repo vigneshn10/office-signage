@@ -1,0 +1,46 @@
+name: Fetch LOLcats
+
+# Collects meme image links from the newest LOLcat articles on
+# https://icanhas.cheezburger.com/lolcats into data/lolcats.json (links only, no
+# images are copied). The screen shows a random one each lap. If this job fails,
+# the screen keeps using the last list (or skips the LOLcats screen if there is none).
+
+on:
+  schedule:
+    - cron: '41 12 * * *'   # 5:41 AM Phoenix, before the office opens
+  push:
+    branches: [main]
+    paths: ['.github/workflows/fetch-lolcats.yml', 'scripts/fetch_lolcats.py']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-lolcats
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Collect LOLcats
+        run: python3 scripts/fetch_lolcats.py data/lolcats.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/lolcats.json
+          if git diff --cached --quiet; then echo "Nothing to commit."; exit 0; fi
+          git commit -m "LOLcats: $(date -u +%Y-%m-%d)"
+          for i in 1 2 3; do
+            if git pull --rebase --quiet origin "$GITHUB_REF_NAME" && git push --quiet origin "HEAD:$GITHUB_REF_NAME"; then exit 0; fi
+            sleep $((i * 5))
+          done
+          echo "::error::Could not push data/lolcats.json"
+          exit 1

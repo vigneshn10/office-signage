@@ -1,7 +1,7 @@
 # Office Screen
 
 Static digital signage for a portrait (phone-shaped) screen. Plain HTML/CSS/JS, no build step, hosted on GitHub Pages.
-Rotates **Schedule → Upcoming Events → Quote of the Day → Cats & Dogs** (20 s / 15 s / 15 s / 15 s, 300 ms crossfade), with a live
+Rotates **Schedule → Upcoming Events → Quote of the Day → LOLcats** (20 s / 15 s / 15 s / 15 s, 300 ms crossfade), with a live
 Phoenix clock and a gold dot indicator, **Mon–Fri 8:00 AM–5:30 PM**. Outside those hours it shows a minimal
 full-screen clock. Schedule and time-off changes arrive from a weekly Google Form.
 
@@ -109,11 +109,11 @@ the rest appear as earlier ones pass. An event on its last day drops off once it
 
 **quote.json**: `{ "date": "YYYY-MM-DD", "text": "...", "author": "..." }` (+ `link`, `source`, `fetchedAt`).
 
-**Cats & Dogs** needs no file: each lap shows a new random picture, alternating cat / dog, from TheCatAPI / TheDogAPI
-(about half the time an animated GIF), with dog.ceo as a backup for dogs. The next picture loads in the background while
-the other screens show; if none is ready the screen is skipped that lap, and after cat and dog both fail it waits
-2 minutes before trying again. Nothing is fetched outside office hours. Settings: `CONFIG.PETS` in `app.js`; remove
-`'pets'` from `VIEW_ORDER` to turn it off.
+**LOLcats** (`data/lolcats.json`): meme links from the newest articles on https://icanhas.cheezburger.com/lolcats,
+collected daily at 5:41 AM by `.github/workflows/fetch-lolcats.yml` (`scripts/fetch_lolcats.py`; links only, no images
+copied). The screen shows a random one each lap, no repeats until the list is used up, with just a border: no title,
+clock or dots. The next one loads in the background; if none is ready the screen is skipped that lap (and after 3 failed
+pictures it waits 2 minutes). Settings: `CONFIG.PETS` in `app.js`; remove `'pets'` from `VIEW_ORDER` to turn it off.
 
 Any file can still be edited by hand in GitHub's web editor (pencil icon → edit → commit).
 

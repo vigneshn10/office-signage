@@ -54,17 +54,14 @@
     TIMEOFF_MAX: 8,
     QUOTE_MAX_AGE_DAYS: 2,            // older quote.json -> use the fallback list
 
-    // Cats & Dogs screen: a random picture each lap, alternating cat / dog. The next one is
-    // loaded in the background while the other screens show; if none is ready in time, the
-    // screen is skipped that lap (never a spinner or a broken image).
+    // LOLcats screen: a random meme each lap from I Can Has Cheezburger? (data/lolcats.json,
+    // refreshed daily by .github/workflows/fetch-lolcats.yml). The next one loads in the
+    // background while the other screens show; if none is ready, the screen is skipped that lap.
     PETS: {
-      CAT_API: 'https://api.thecatapi.com/v1/images/search',
-      DOG_API: 'https://api.thedogapi.com/v1/images/search',
-      DOG_BACKUP_API: 'https://dog.ceo/api/breeds/image/random',
-      GIF_SHARE: 0.5,                 // share of pictures that try for an animated GIF first
-      API_TIMEOUT_MS: 10000,
+      LIST: 'data/lolcats.json',
+      LIST_REFRESH_MS: 60 * 60 * 1000,  // re-read the list hourly
       LOAD_TIMEOUT_MS: 30000,
-      RETRY_MS: 2 * 60 * 1000         // after a failed try (every source), wait this long
+      RETRY_MS: 2 * 60 * 1000           // after a failed try, wait this long
     },
 
     // Auto-fit: multiplier on the base type size from style.css.
@@ -975,19 +972,8 @@
     return 1;
   }
 
-  /* ---------- View 4: Cats & Dogs ---------- */
-  var pets = { next: null, current: null, loading: false, kind: 'cat', fails: 0, retryAt: 0 };
-
-  function getJSON(url, timeoutMs) {
-    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, timeoutMs);
-    return fetch(url, { cache: 'no-store', signal: ctrl ? ctrl.signal : undefined })
-      .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function (j) { clearTimeout(timer); return j; }, function (e) { clearTimeout(timer); throw e; });
-  }
+  /* ---------- View 4: LOLcats ---------- */
+  var pets = { list: null, listAt: 0, bag: [], next: null, current: null, loading: false, fails: 0, retryAt: 0 };
 
   function loadImage(src, timeoutMs) {
     return new Promise(function (resolve, reject) {
@@ -1000,67 +986,63 @@
       img.onerror = function () { clearTimeout(timer); reject(new Error('image failed to load')); };
       img.alt = '';
       img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
       img.src = src;
     });
   }
 
-  // Where to look, in order: [JSON URL, json -> image URL]. Cats: TheCatAPI (GIF first about
-  // half the time, then stills). Dogs: TheDogAPI the same way, then dog.ceo as a backup.
-  function petSources(kind) {
-    var P = CONFIG.PETS;
-    var api = kind === 'cat' ? P.CAT_API : P.DOG_API;
-    var first = Math.random() < P.GIF_SHARE ? 'gif' : 'jpg,png,gif';
-    var fromApi = function (j) { return j && j[0] && j[0].url; };
-    var list = [[api + '?mime_types=' + first, fromApi], [api + '?mime_types=jpg,png', fromApi]];
-    if (kind === 'dog') list.push([P.DOG_BACKUP_API, function (j) { return j && j.status === 'success' && j.message; }]);
-    return list;
+  function petList() {
+    if (pets.list && Date.now() - pets.listAt < CONFIG.PETS.LIST_REFRESH_MS) return Promise.resolve(pets.list);
+    return fetchText(CONFIG.PETS.LIST).then(function (txt) {
+      var items = (JSON.parse(txt).items || []).filter(function (it) {
+        return it && typeof it.url === 'string' && /^https:\/\/i\.chzbgr\.com\//.test(it.url);
+      });
+      if (!items.length) throw new Error('lolcats.json has no pictures');
+      pets.list = items; pets.listAt = Date.now(); pets.bag = [];
+      return items;
+    }, function (e) { if (pets.list) return pets.list; throw e; });
   }
 
-  function fetchPet(kind) {
-    var sources = petSources(kind);
-    function attempt(i) {
-      if (i >= sources.length) return Promise.reject(new Error('no ' + kind + ' picture'));
-      return getJSON(sources[i][0], CONFIG.PETS.API_TIMEOUT_MS)
-        .then(function (j) {
-          var url = sources[i][1](j);
-          if (typeof url !== 'string' || !/^https:\/\//.test(url)) throw new Error('no picture in the reply');
-          return loadImage(url, CONFIG.PETS.LOAD_TIMEOUT_MS);
-        })
-        .then(function (img) { return { kind: kind, img: img }; }, function (e) {
-          console.warn('[signage] ' + kind + ' picture: ' + e.message);
-          return attempt(i + 1);
-        });
+  // Random order without repeats until every meme in the list has been shown once.
+  function nextFromBag(list) {
+    if (!pets.bag.length) {
+      pets.bag = list.slice();
+      for (var i = pets.bag.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1)), t = pets.bag[i]; pets.bag[i] = pets.bag[j]; pets.bag[j] = t;
+      }
     }
-    return attempt(0);
+    return pets.bag.pop();
   }
 
-  // Load the next picture in the background (alternating cat / dog, so if one source is
-  // down the other kind is tried next time).
   function preloadPet() {
     if (pets.next || pets.loading || Date.now() < pets.retryAt || rot.order.indexOf('pets') < 0) return;
     pets.loading = true;
-    var kind = pets.kind;
-    pets.kind = kind === 'cat' ? 'dog' : 'cat';
-    fetchPet(kind).then(function (pic) { pets.next = pic; pets.fails = 0; }, function () {
-      // Cat and dog both failed in a row: give the services a break before trying again.
-      if (++pets.fails >= 2) { pets.fails = 0; pets.retryAt = Date.now() + CONFIG.PETS.RETRY_MS; }
+    petList().then(function (list) {
+      var tries = 0;
+      function attempt() {
+        var it = nextFromBag(list);
+        return loadImage(it.url, CONFIG.PETS.LOAD_TIMEOUT_MS).then(function (img) { return { img: img, item: it }; }, function (e) {
+          console.warn('[signage] lolcat: ' + e.message + ' ' + it.url);
+          if (++tries < 3) return attempt();
+          throw e;
+        });
+      }
+      return attempt();
+    }).then(function (pic) { pets.next = pic; pets.fails = 0; }, function (e) {
+      console.warn('[signage] lolcats: ' + e.message);
+      pets.retryAt = Date.now() + CONFIG.PETS.RETRY_MS;
     }).then(function () { pets.loading = false; });
   }
 
   function renderPets(view) {
     if (pets.next) { pets.current = pets.next; pets.next = null; }
     setTimeout(preloadPet, 0);                  // start on the one after right away
-    var pic = pets.current;
-    if (!pic) {                                 // only when pinned with ?view=pets
-      setSubtitle(view, '');
-      return renderPlaceholder(view, 'Finding a cat…');
-    }
-    setSubtitle(view, pic.kind === 'cat' ? 'Random cat' : 'Random dog');
+    if (!pets.current) return renderPlaceholder(view, 'Finding a LOLcat…');   // only when pinned
     var body = view.querySelector('.view-body');
     body.textContent = '';
     var fr = newFrame(body, true);
     fr.fit.className = 'fit pet';
-    fr.fit.appendChild(pic.img);
+    fr.fit.appendChild(pets.current.img);
     return 1;
   }
 
@@ -1069,7 +1051,7 @@
     schedule: 'Schedule unavailable — retrying…',
     events: 'Events unavailable — retrying…',
     quote: 'Quote unavailable — retrying…',
-    pets: 'Pictures unavailable'
+    pets: 'LOLcats unavailable'
   };
 
   // A view that throws never stops the rotation: it shows its placeholder instead.
@@ -1135,6 +1117,7 @@
     var all = document.querySelectorAll('.view');
     for (var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === view);
     updateDots(p.name);
+    document.body.classList.toggle('on-pets', p.name === 'pets');   // just the picture: no clock or dots
 
     var durs = frameDurations(p.name, p.frames).map(function (d) { return d / rot.speed; });
     var t = 0;
@@ -1153,6 +1136,7 @@
 
   function stopRotation() {
     clearRotationTimers();
+    document.body.classList.remove('on-pets');
     var all = document.querySelectorAll('.view');
     for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
   }

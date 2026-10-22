@@ -414,15 +414,24 @@ body.is-idle { background: #000; }
   letter-spacing: 0.04em;
 }
 
-/* ---------- View 4: Cats & Dogs ---------- */
-/* The picture fills the frame without cropping (so the joke isn't cut off); the
-   letterbox stays the dark page background, which is kindest to the OLED. */
+/* ---------- View 4: LOLcats ---------- */
+/* No header, clock or dots: a maroon border with a thin gold line, and the meme shown
+   whole (never cropped, so the caption isn't cut off) on black, kindest to the OLED. */
+.view[data-view="pets"] .frame {
+  top: var(--pad-x);
+  bottom: var(--pad-x);
+}
 .fit.pet {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: calc(var(--u) * 1.6);
+  background: #000;
+  border: calc(var(--u) * 1.4) solid var(--maroon);
+  border-radius: calc(var(--u) * 1.6);
+  box-shadow: inset 0 0 0 max(1px, calc(var(--u) * 0.35)) var(--gold);
 }
 .fit.pet img {
   display: block;
@@ -430,6 +439,10 @@ body.is-idle { background: #000; }
   height: 100%;
   object-fit: contain;
 }
+.clock, .dots { transition: opacity var(--fade) ease; }
+body.on-pets .clock,
+body.on-pets .dots { opacity: 0; }
+body.on-pets { background: var(--ink); }
 
 /* ---------- Outside office hours: minimal clock ---------- */
 
