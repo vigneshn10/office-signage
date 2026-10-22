@@ -128,7 +128,8 @@ Any file can still be edited by hand in GitHub's web editor (pencil icon → edi
 - **Daily reload** at 2:00 AM Phoenix, only once the site answers, so an outage never leaves a browser error page.
 - **Code updates** load on their own: every 5 minutes the page compares `app.js` and `style.css` on the site with what
   it's running; a change seen twice a minute apart triggers a reload (`UPDATE_FILES`, `UPDATE_CONFIRM_MS` in `app.js`).
-  Changes to `index.html` alone still wait for the 2 AM reload.
+  It also compares the screens in the site's page with the ones on display, so a display that kept an old saved
+  copy of the page reloads too. Each screen is built 0.5 s before it appears (`PREPARE_MS`).
 - **OLED care:** the whole screen drifts slowly and continuously (up to ±2% sideways, ±1.2% vertically, never
   resting on the same pixels), the after-hours clock jumps to a new spot every minute on true black, and the views
   rotate. Tune with `OLED_ORBIT` / `IDLE_DRIFT_MS` in `app.js`. Screen wake lock is requested where supported.

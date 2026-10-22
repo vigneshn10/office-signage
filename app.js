@@ -31,6 +31,7 @@
     SCHEDULE_DAYS_MAX: 10,            // look this many weekdays ahead at most
     EVENTS_PAGE_MS: 10000,            // (only used if a view ever has several pages)
     FADE_MS: 300,
+    PREPARE_MS: 500,                  // the next screen is built this long before the switch
 
     REFRESH_MS: 5 * 60 * 1000,        // re-fetch every data file
     FETCH_TIMEOUT_MS: 15000,
@@ -1111,29 +1112,43 @@
     for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('active', dots[i].getAttribute('data-for') === name);
   }
 
-  function show(idx) {
-    clearRotationTimers();
-    rot.idx = idx;
-    var name = rot.order[idx];
-    preloadPet();
-    if (name === 'pets' && !pets.next && rot.order.length > 1) {
-      show((idx + 1) % rot.order.length);       // no new picture yet: skip it this lap
-      return;
+  // Build a screen while it's still hidden. Cats & Dogs is passed over when no new picture is ready.
+  function prepareView(idx) {
+    for (var tries = 0; tries < rot.order.length; tries++) {
+      var name = rot.order[idx];
+      preloadPet();
+      if (!(name === 'pets' && !pets.next && rot.order.length > 1)) {
+        var view = viewEl(name);
+        return { idx: idx, name: name, view: view, frames: safeRender(name, view) };
+      }
+      idx = (idx + 1) % rot.order.length;
     }
-    var view = viewEl(name);
-    var frames = safeRender(name, view);
+    return { idx: idx, name: rot.order[idx], view: viewEl(rot.order[idx]), frames: safeRender(rot.order[idx], viewEl(rot.order[idx])) };
+  }
+
+  function show(idx, prepared) {
+    clearRotationTimers();
+    var p = prepared && prepared.idx === idx ? prepared : prepareView(idx);
+    var view = p.view;
+    rot.idx = p.idx;
     setFrame(view, 0);
     var all = document.querySelectorAll('.view');
     for (var i = 0; i < all.length; i++) all[i].classList.toggle('active', all[i] === view);
-    updateDots(name);
+    updateDots(p.name);
 
-    var durs = frameDurations(name, frames).map(function (d) { return d / rot.speed; });
+    var durs = frameDurations(p.name, p.frames).map(function (d) { return d / rot.speed; });
     var t = 0;
     durs.forEach(function (d, k) {
       if (k > 0) rot.subTimers.push(setTimeout(function () { setFrame(view, k); }, t));
       t += d;
     });
-    rot.timer = setTimeout(function () { show((idx + 1) % rot.order.length); }, t);
+    // Build the next screen PREPARE_MS before the switch, so it's ready (picture decoded,
+    // text fitted) the moment this one ends.
+    var next = (p.idx + 1) % rot.order.length;
+    var ahead = null;
+    var early = rot.order.length > 1 ? Math.min(CONFIG.PREPARE_MS / rot.speed, t / 2) : 0;
+    if (early) rot.subTimers.push(setTimeout(function () { ahead = prepareView(next); }, t - early));
+    rot.timer = setTimeout(function () { show(ahead ? ahead.idx : next, ahead); }, t);
   }
 
   function stopRotation() {
@@ -1275,7 +1290,7 @@
     return (h >>> 0).toString(16) + ':' + s.length;
   }
 
-  function siteVersion(cacheMode) {
+  function fileHashes(cacheMode) {
     return Promise.all(CONFIG.UPDATE_FILES.map(function (f) {
       return fetch(f, { cache: cacheMode }).then(function (res) {
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1284,11 +1299,36 @@
     })).then(function (texts) { return texts.map(hashText).join('|'); });
   }
 
+  // Which screens a page has, e.g. "schedule,events,quote,pets".
+  function viewsIn(html) {
+    var out = [], re = /data-view="([^"]+)"/g, m;
+    while ((m = re.exec(html))) out.push(m[1]);
+    return out.join(',');
+  }
+  function viewsOnScreen() {
+    return Array.prototype.map.call(document.querySelectorAll('.view[data-view]'), function (e) {
+      return e.getAttribute('data-view');
+    }).join(',');
+  }
+
+  // Code on the site + screens in the site's page. The page part catches a display that
+  // got the new app.js but kept an old saved copy of the page itself.
+  function siteVersion(cacheMode) {
+    var page = fetch(root.location.pathname, { cache: 'no-cache' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }).then(viewsIn);
+    return Promise.all([fileHashes(cacheMode), page]).then(function (a) { return a[0] + '|' + a[1]; });
+  }
+
   var update = { running: null, pending: null, timer: null };
 
   function watchForUpdates() {
     // The page was just loaded from the browser cache, so the cached copy is what's running.
-    siteVersion('force-cache').then(function (v) { update.running = v; }, function () { });
+    fileHashes('force-cache').then(function (v) {
+      update.running = v + '|' + viewsOnScreen();
+      setTimeout(checkForUpdate, 30000);        // first check soon after loading
+    }, function () { });
   }
 
   function checkForUpdate() {
