@@ -36,6 +36,11 @@
     FETCH_TIMEOUT_MS: 15000,
     RELOAD_HOUR: 2,                   // full page reload once a day, 2:00 AM Phoenix
     RELOAD_RETRY_MS: 5 * 60 * 1000,   // if the network is down at reload time, wait and retry
+    // With each data refresh, check whether these files changed on the site and reload
+    // if so, so code updates show up within minutes instead of at the 2 AM reload.
+    // A change has to be seen twice, UPDATE_CONFIRM_MS apart, before the screen reloads.
+    UPDATE_FILES: ['app.js', 'style.css'],
+    UPDATE_CONFIRM_MS: 60 * 1000,
 
     DATA_FILES: {
       schedule: 'data/schedule.txt',
@@ -1113,6 +1118,49 @@
     }, 30000);
   }
 
+  /* ---------- Reload when the site's code changes ---------- */
+  function hashText(s) {   // FNV-1a, plus length: enough to tell two versions apart
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return (h >>> 0).toString(16) + ':' + s.length;
+  }
+
+  function siteVersion(cacheMode) {
+    return Promise.all(CONFIG.UPDATE_FILES.map(function (f) {
+      return fetch(f, { cache: cacheMode }).then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.text();
+      });
+    })).then(function (texts) { return texts.map(hashText).join('|'); });
+  }
+
+  var update = { running: null, pending: null, timer: null };
+
+  function watchForUpdates() {
+    // The page was just loaded from the browser cache, so the cached copy is what's running.
+    siteVersion('force-cache').then(function (v) { update.running = v; }, function () { });
+  }
+
+  function checkForUpdate() {
+    if (!update.running || update.timer) return Promise.resolve(false);
+    // 'no-cache' asks the server and saves the answer in the browser cache, so the
+    // reload below runs the new files instead of a cached copy.
+    return siteVersion('no-cache').then(function (v) {
+      if (v === update.running) return false;
+      update.pending = v;
+      update.timer = setTimeout(function () {   // confirm: GitHub's CDN can briefly disagree
+        siteVersion('no-cache').then(function (v2) {
+          update.timer = null;
+          if (v2 === update.pending && v2 !== update.running) {
+            console.info('[signage] the site changed; reloading');
+            root.location.reload();
+          }
+        }, function () { update.timer = null; });
+      }, CONFIG.UPDATE_CONFIRM_MS);
+      return true;
+    }, function () { return false; });   // offline: try again next time
+  }
+
   /* ---------- Screen care ---------- */
   function keepAwake() {
     if (!('wakeLock' in navigator)) return;
@@ -1189,6 +1237,8 @@
     oledOrbit();
     syncHeaderHeight();
     scheduleDailyReload();
+    watchForUpdates();
+    setInterval(checkForUpdate, CONFIG.REFRESH_MS);
     if (CONFIG.IDLE_DRIFT_MS) setInterval(driftIdleClock, CONFIG.IDLE_DRIFT_MS);
 
     function start() {
@@ -1219,7 +1269,8 @@
     classifyValue: classifyValue, buildWeek: buildWeek, resolveTimeOff: resolveTimeOff,
     resolveEvents: resolveEvents, pickQuote: pickQuote, formatDayRange: formatDayRange, weekLabel: weekLabel,
     officeOpen: officeOpen,
-    refreshNow: refreshAll   // e.g. Signage.refreshNow() from the browser console
+    refreshNow: refreshAll,  // e.g. Signage.refreshNow() from the browser console
+    checkForUpdate: checkForUpdate
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   if (typeof document !== 'undefined' && root && root.location) {

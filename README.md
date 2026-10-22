@@ -37,7 +37,8 @@ To let others edit `data/` files in the GitHub web editor, add them under **Sett
   Lock it to the app with *Settings → Accessibility → Guided Access*, and set *Display → Auto-Lock → Never*.
 - **Android:** Chrome → ⋮ → *Add to Home screen*, or use a kiosk browser (e.g. Fully Kiosk) with the URL as its
   start page; turn on *Stay awake while charging* in Developer options.
-- Keep the phone on a charger. The page refreshes data every 5 minutes and reloads itself at 2 AM.
+- Keep the phone on a charger. The page refreshes data every 5 minutes, reloads itself within ~6 minutes when
+  `app.js` or `style.css` changes on the site, and also reloads at 2 AM.
 
 ## 2. Quote of the Day Action
 
@@ -116,6 +117,9 @@ Any file can still be edited by hand in GitHub's web editor (pencil icon → edi
 - **Office hours:** `ACTIVE_HOURS` in `app.js` (days, start, end). The switch happens within a second of the boundary;
   the idle clock is true black and drifts slightly every minute so nothing burns in.
 - **Daily reload** at 2:00 AM Phoenix, only once the site answers, so an outage never leaves a browser error page.
+- **Code updates** load on their own: every 5 minutes the page compares `app.js` and `style.css` on the site with what
+  it's running; a change seen twice a minute apart triggers a reload (`UPDATE_FILES`, `UPDATE_CONFIRM_MS` in `app.js`).
+  Changes to `index.html` alone still wait for the 2 AM reload.
 - **OLED care:** the whole screen drifts slowly and continuously (up to ±2% sideways, ±1.2% vertically, never
   resting on the same pixels), the after-hours clock jumps to a new spot every minute on true black, and the views
   rotate. Tune with `OLED_ORBIT` / `IDLE_DRIFT_MS` in `app.js`. Screen wake lock is requested where supported.
