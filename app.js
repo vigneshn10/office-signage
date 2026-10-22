@@ -59,7 +59,7 @@
     // background while the other screens show; if none is ready, the screen is skipped that lap.
     PETS: {
       LIST: 'data/lolcats.json',
-      LIST_REFRESH_MS: 60 * 60 * 1000,  // re-read the list hourly
+      LIST_REFRESH_MS: 5 * 60 * 1000,   // re-read the list with the other data
       LOAD_TIMEOUT_MS: 30000,
       RETRY_MS: 2 * 60 * 1000           // after a failed try, wait this long
     },

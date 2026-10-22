@@ -37,16 +37,26 @@ def get(url, referer=None):
     raise RuntimeError(f"{url}: {err}")
 
 
+# The listing page also links Cheezburger's trending stories (restaurant drama, gym
+# memes, celebrities...). Keep only articles whose title says they're cat memes.
+CAT_RE = re.compile(r"lolcat|caturday|cat|feline|kitt")
+MEME_RE = re.compile(r"lolcat|caturday|meme|funn|clawmedy|lol|cuteness|joke")
+
+
+def is_cat_meme_article(slug):
+    return bool(CAT_RE.search(slug) and MEME_RE.search(slug))
+
+
 def articles_in(listing_html):
-    """Article links on the listing page, in page order (newest first), deduplicated."""
+    """Cat meme article links on the listing page, newest first (by article id), deduplicated."""
     seen, out = set(), []
     for m in ARTICLE_RE.finditer(listing_html):
         aid, slug = m.group(1), m.group(2)
-        if aid in seen:
+        if aid in seen or not is_cat_meme_article(slug):
             continue
         seen.add(aid)
-        out.append(f"https://cheezburger.com/{aid}/{slug}")
-    return out
+        out.append((int(aid), f"https://cheezburger.com/{aid}/{slug}"))
+    return [url for _, url in sorted(out, reverse=True)]
 
 
 def memes_in(article_html, article_url):
