@@ -54,11 +54,11 @@
     TIMEOFF_MAX: 8,
     QUOTE_MAX_AGE_DAYS: 2,            // older quote.json -> use the fallback list
 
-    // LOLcats screen: a random meme each lap from I Can Has Cheezburger? (data/lolcats.json,
-    // refreshed daily by .github/workflows/fetch-lolcats.yml). The next one loads in the
+    // Cat GIF screen: a random GIF each lap from Tenor's "cat gifs" search (data/catgifs.json,
+    // refreshed daily by .github/workflows/fetch-cat-gifs.yml). The next one loads in the
     // background while the other screens show; if none is ready, the screen is skipped that lap.
     PETS: {
-      LIST: 'data/lolcats.json',
+      LIST: 'data/catgifs.json',
       LIST_REFRESH_MS: 5 * 60 * 1000,   // re-read the list with the other data
       LOAD_TIMEOUT_MS: 30000,
       RETRY_MS: 2 * 60 * 1000           // after a failed try, wait this long
@@ -972,7 +972,7 @@
     return 1;
   }
 
-  /* ---------- View 4: LOLcats ---------- */
+  /* ---------- View 4: Cat GIFs ---------- */
   var pets = { list: null, listAt: 0, bag: [], next: null, current: null, loading: false, fails: 0, retryAt: 0 };
 
   function loadImage(src, timeoutMs) {
@@ -995,9 +995,9 @@
     if (pets.list && Date.now() - pets.listAt < CONFIG.PETS.LIST_REFRESH_MS) return Promise.resolve(pets.list);
     return fetchText(CONFIG.PETS.LIST).then(function (txt) {
       var items = (JSON.parse(txt).items || []).filter(function (it) {
-        return it && typeof it.url === 'string' && /^https:\/\/i\.chzbgr\.com\//.test(it.url);
+        return it && typeof it.url === 'string' && /^https:\/\/media\d*\.tenor\.com\//.test(it.url);
       });
-      if (!items.length) throw new Error('lolcats.json has no pictures');
+      if (!items.length) throw new Error('catgifs.json has no GIFs');
       pets.list = items; pets.listAt = Date.now(); pets.bag = [];
       return items;
     }, function (e) { if (pets.list) return pets.list; throw e; });
@@ -1022,14 +1022,14 @@
       function attempt() {
         var it = nextFromBag(list);
         return loadImage(it.url, CONFIG.PETS.LOAD_TIMEOUT_MS).then(function (img) { return { img: img, item: it }; }, function (e) {
-          console.warn('[signage] lolcat: ' + e.message + ' ' + it.url);
+          console.warn('[signage] cat GIF: ' + e.message + ' ' + it.url);
           if (++tries < 3) return attempt();
           throw e;
         });
       }
       return attempt();
     }).then(function (pic) { pets.next = pic; pets.fails = 0; }, function (e) {
-      console.warn('[signage] lolcats: ' + e.message);
+      console.warn('[signage] cat GIFs: ' + e.message);
       pets.retryAt = Date.now() + CONFIG.PETS.RETRY_MS;
     }).then(function () { pets.loading = false; });
   }
@@ -1037,7 +1037,7 @@
   function renderPets(view) {
     if (pets.next) { pets.current = pets.next; pets.next = null; }
     setTimeout(preloadPet, 0);                  // start on the one after right away
-    if (!pets.current) return renderPlaceholder(view, 'Finding a LOLcat…');   // only when pinned
+    if (!pets.current) return renderPlaceholder(view, 'Finding a cat…');   // only when pinned
     var body = view.querySelector('.view-body');
     body.textContent = '';
     var fr = newFrame(body, true);
@@ -1051,7 +1051,7 @@
     schedule: 'Schedule unavailable — retrying…',
     events: 'Events unavailable — retrying…',
     quote: 'Quote unavailable — retrying…',
-    pets: 'LOLcats unavailable'
+    pets: 'Cat GIFs unavailable'
   };
 
   // A view that throws never stops the rotation: it shows its placeholder instead.
@@ -1094,7 +1094,7 @@
     for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('active', dots[i].getAttribute('data-for') === name);
   }
 
-  // Build a screen while it's still hidden. LOLcats is passed over when no new picture is ready.
+  // Build a screen while it's still hidden. the cat GIF screen is passed over when no new picture is ready.
   function prepareView(idx) {
     for (var tries = 0; tries < rot.order.length; tries++) {
       var name = rot.order[idx];

@@ -414,7 +414,7 @@ body.is-idle { background: #000; }
   letter-spacing: 0.04em;
 }
 
-/* ---------- View 4: LOLcats ---------- */
+/* ---------- View 4: Cat GIFs ---------- */
 /* No header, clock or dots: a maroon border with a thin gold line, and the meme shown
    whole (never cropped, so the caption isn't cut off) on black, kindest to the OLED. */
 .view[data-view="pets"] .frame {
