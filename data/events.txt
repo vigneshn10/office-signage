@@ -36,7 +36,7 @@ Moonlight Movie:
 Dates: Nov 13, 2026 (Fri)
 Timings: 5:00 PM - 8:30 PM
 Location: 201
-Student Worker: -
+Student Worker: Vignesh
 
 Alex Ma Seminar:
 Dates: Nov 14, 2026 (Sat)
@@ -54,7 +54,7 @@ MPS Esports:
 Dates: Nov 20, 2026 (Fri)
 Timings: 7:00 AM - 4:00 PM
 Location: 201 + 324 + 334
-Student Worker: -
+Student Worker: Mohith
 
 TEL Class Support:
 Dates: Nov 21, 2026 (Sat)
