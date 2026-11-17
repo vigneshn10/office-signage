@@ -9,24 +9,6 @@
 # Julia's and Melissa's regular hours live in app.js; add a line for them only to override one day.
 # Time off from timeoff.txt shows automatically. Lines starting with "# " are ignored.
 
-# ---- Week of Nov 2 ----
-Tuesday (11/3):
-Vignesh: 8:30 AM - 5:30 PM
-Balaji: 1:00 PM - 10:00 PM
-
-Wednesday (11/4):
-Vignesh: 8:00 AM - 11:00 AM
-Mohith: 1:00 PM - 4:00 PM
-
-Thursday (11/5):
-Vignesh: 8:30 AM - 5:30 PM
-Balaji: 1:00 PM - 5:30 PM
-Mohith: 8:30 AM - 5:30 PM
-
-Friday (11/6):
-Balaji: 9:00 AM - 5:30 PM
-Mohith: 8:30 AM - 5:30 PM
-
 # ---- Week of Nov 9 (Wed 11/11 closed, below) ----
 Monday (11/9):
 Mohith: 8:00 AM - 11:00 AM
@@ -64,6 +46,22 @@ Mohith: 8:30 AM - 5:30 PM
 Friday (11/20):
 Balaji: 9:00 AM - 5:30 PM
 Mohith: 7:00 AM - 4:00 PM
+
+# ---- Week of Nov 23 (Thu 11/26 + Fri 11/27 closed, below) ----
+Monday (11/23):
+Vignesh: 8:30 AM - 5:30 PM
+Balaji: 9:00 AM - 2:30 PM
+Mohith: 8:00 AM - 11:00 AM
+
+Tuesday (11/24):
+Vignesh: 8:30 AM - 5:30 PM
+Balaji: 9:00 AM - 5:30 PM
+Mohith: 8:00 AM - 5:30 PM
+
+Wednesday (11/25):
+Vignesh: 8:00 AM - 11:00 AM
+Balaji: 9:00 AM - 2:30 PM
+Mohith: 8:00 AM - 11:00 AM
 
 # ---- University closed ----
 Wednesday (11/11):
