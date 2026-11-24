@@ -4,64 +4,43 @@
 # Upcoming events show soonest first, as many as fit on the screen; an event drops off once
 # its end time has passed. Lines starting with "# " are ignored.
 
-PEI Innovation Summit:
-Dates: Oct 30, 2026 (Fri)
-Timings: 7:00 AM - 5:00 PM
-Location: Lobby + 201
-Student Worker: Vignesh & Balaji
-
-Blokada – Class Time DCP Screening:
-Dates: Nov 3, 2026 (Tue)
-Timings: 9:00 AM - 12:00 PM
-Location: 201
-Student Worker: Vignesh
-
-CSRD Screening:
-Dates: Nov 3, 2026 (Tue)
-Timings: 3:30 PM - 10:00 PM
-Location: 101
-Student Worker: Balaji
-
-Next Gen Summit (Endless Labs):
-Dates: Nov 7, 2026 (Sat)
-Timings: 8:00 AM - TBD
-Location: Labs (TBD)
-Student Worker: -
-
-Veterans Day – University Closed:
-Dates: Nov 11, 2026 (Wed)
-Note: 310 closed, no one scheduled
-
-Moonlight Movie:
-Dates: Nov 13, 2026 (Fri)
-Timings: 5:00 PM - 8:30 PM
-Location: 201
-Student Worker: Vignesh
-
-Poitier Hold:
-Dates: Nov 17, 2026 (Tue)
-Timings: 2:00 PM - 10:00 PM
-Location: 201
-Student Worker: -
-
-MPS Esports:
-Dates: Nov 20, 2026 (Fri)
-Timings: 7:00 AM - 4:00 PM
-Location: 201 + 324 + 334
-Student Worker: Mohith
-
-TEL Class Support:
-Dates: Nov 21, 2026 (Sat)
-Timings: 7:30 AM - 4:30 PM
-Location: 333
-Student Worker: -
-
-Puppet Web Series Premiere:
-Dates: Nov 21, 2026 (Sat)
-Timings: 1:00 PM - 9:00 PM
-Location: 101
-Student Worker: -
-
 Thanksgiving – University Closed:
 Dates: Nov 26 - Nov 27, 2026 (Thu - Fri)
 Note: 310 closed, no one scheduled
+
+Poitier – Safe Sets:
+Dates: Nov 30, 2026 (Mon)
+Timings: 3:00 PM - 10:00 PM
+Location: 101
+Student Worker: Needed
+
+MIXibition:
+Dates: Dec 2, 2026 (Wed)
+Timings: 5:00 PM - 9:00 PM
+Note: Event kicks off at 6:00 PM
+Location: MIX activated
+Student Worker: Vignesh (morning), Balaji (evening)
+
+ASU Prep Showcase:
+Dates: Dec 7, 2026 (Mon)
+Timings: 8:00 AM - 12:00 PM
+Location: 201
+Student Worker: Mohith
+
+Animation Showcase Test:
+Dates: Dec 7, 2026 (Mon)
+Timings: 2:00 PM - 4:00 PM
+Location: 201 (TBC)
+Staff: Melissa
+
+Animation Showcase:
+Dates: Dec 8, 2026 (Tue)
+Timings: 6:00 PM - 10:00 PM
+Location: 201
+Student Worker: Vignesh
+
+Community Movie:
+Dates: Dec 11, 2026 (Fri)
+Timings: 5:00 PM - 8:30 PM
+Location: DAK
+Student Worker: Balaji
